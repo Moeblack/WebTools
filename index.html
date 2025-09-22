@@ -1,1449 +1,427 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多功能文本处理工具</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 120px;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px 0;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -60px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .tooltip .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #555 transparent transparent transparent;
-        }
-        .tooltip.show .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-        .tab-active {
-            border-color: #3b82f6;
-            color: #2563eb;
-            font-weight: 600;
-        }
-        /* 美化开关样式 */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 48px;
-            height: 24px;
-        }
-        .switch input { 
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #2563eb;
-        }
-        input:checked + .slider:before {
-            transform: translateX(24px);
-        }
-        .quick-duration-btn {
-            background-color: #eef2ff;
-            color: #4338ca;
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            transition: background-color 0.2s;
-            border: 1px solid #c7d2fe;
-        }
-        .quick-duration-btn:hover {
-            background-color: #e0e7ff;
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多功能文本处理工具</title>
+
+  <!-- 主题色与 PWA 清单 -->
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="./manifest.webmanifest">
+
+  <!-- Favicon 与图标（可直接热链） -->
+  <link rel="icon" type="image/png" sizes="32x32" href="https://img.icons8.com/color/192/administrative-tools.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="https://img.icons8.com/color/192/administrative-tools.png">
+
+  <!-- 字体与 Tailwind（CDN） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- 自定义样式（从内联样式迁移到独立文件） -->
+  <link rel="stylesheet" href="./assets/styles.css">
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-
-    <div class="container mx-auto max-w-5xl">
-        <div class="bg-white rounded-2xl shadow-xl p-6 md:p-10">
-            <!-- Tab Navigation -->
-            <div class="border-b border-gray-200 mb-6">
-                <nav class="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-                    <button id="tab-subtitle" class="tab-active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">字幕工具</button>
-                    <button id="tab-cleanup" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">文本清理</button>
-                    <button id="tab-joiner" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">文本拼接</button>
-                    <button id="tab-injector" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">文本加料</button>
-                    <button id="tab-counter" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">字数统计</button>
-                    <button id="tab-timestamp" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">时间戳转换</button>
-                    <button id="tab-duration" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">时间段转换</button>
-                    <button id="tab-base64" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">Base64 编码</button>
-                    <button id="tab-escape" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">文本转义</button>
-                    <button id="tab-converter" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">简繁转换</button>
-                </nav>
-            </div>
-
-            <!-- Tab Content -->
-            <div>
-                <!-- Subtitle Tool -->
-                <div id="content-subtitle">
-                    <div class="text-center mb-8">
-                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">字幕批量处理工具</h1>
-                        <p class="text-gray-500 mt-2">智能识别 SRT, VTT, LRC, ASS 字幕，支持批量处理和文件夹上传。</p>
-                    </div>
-                    
-                    <div class="flex flex-col lg:flex-row gap-8">
-                        <!-- Left Column: Batch Processing -->
-                        <div class="lg:w-1/2 flex flex-col">
-                            <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">批量文件处理</h2>
-                            <div class="flex-grow flex flex-col">
-                                <div class="flex flex-col sm:flex-row gap-4 mb-4">
-                                    <label id="subtitle-files-label" for="subtitle-files-input" class="flex-1 text-center cursor-pointer bg-white border border-blue-500 text-blue-500 hover:bg-blue-50 font-semibold py-3 px-6 rounded-lg transition-all">上传多个文件</label>
-                                    <input type="file" id="subtitle-files-input" accept=".srt,.lrc,.ass,.ssa,.vtt" class="hidden" multiple>
-                                    
-                                    <label id="subtitle-folder-label" for="subtitle-folder-input" class="flex-1 text-center cursor-pointer bg-white border border-indigo-500 text-indigo-500 hover:bg-indigo-50 font-semibold py-3 px-6 rounded-lg transition-all">选择文件夹</label>
-                                    <input type="file" id="subtitle-folder-input" class="hidden" webkitdirectory directory>
-                                </div>
-                                <div class="bg-gray-50 rounded-lg p-4 flex-grow flex flex-col">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <h3 id="subtitle-results-status" class="text-sm font-medium text-gray-600">处理结果</h3>
-                                        <button id="subtitle-clear-btn" class="text-sm text-gray-500 hover:text-gray-700">清空列表</button>
-                                    </div>
-                                    <div id="subtitle-results-container" class="flex-grow overflow-y-auto space-y-1 pr-2">
-                                        <p class="text-gray-400 text-center pt-8">请上传文件或文件夹...</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-auto pt-4"> <!-- Use mt-auto to push to bottom -->
-                                <button id="subtitle-download-zip-btn" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-all" disabled>下载全部结果 (.zip)</button>
-                            </div>
-                        </div>
-
-                        <!-- Right Column: Single Paste -->
-                        <div class="lg:w-1/2 flex flex-col">
-                             <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">单个文本处理</h2>
-                             <div class="flex-grow flex flex-col gap-4">
-                                 <div class="flex-1 flex flex-col">
-                                     <label for="subtitle-paste-input" class="block text-sm font-medium text-gray-700 mb-2">在此处粘贴字幕内容</label>
-                                     <textarea id="subtitle-paste-input" class="w-full flex-grow p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="工具会自动识别格式..."></textarea>
-                                 </div>
-                                 <div class="flex-1 flex flex-col">
-                                     <label for="subtitle-paste-output" class="block text-sm font-medium text-gray-700 mb-2">纯文本结果</label>
-                                     <textarea id="subtitle-paste-output" readonly class="w-full flex-grow p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
-                                 </div>
-                             </div>
-                             <div class="mt-auto pt-4"> <!-- Use mt-auto to push to bottom -->
-                                 <div class="flex gap-4">
-                                     <button id="subtitle-paste-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all">处理粘贴内容</button>
-                                     <div class="tooltip flex-1"><span class="tooltiptext" id="subtitle-paste-tooltip">复制到剪贴板</span><button id="subtitle-paste-copy-btn" class="w-full bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-all">复制结果</button></div>
-                                 </div>
-                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Text Cleanup Tool -->
-                <div id="content-cleanup" class="hidden">
-                    <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本清理工具</h1><p class="text-gray-500 mt-2">自定义移除 Markdown 标记和空行。</p></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div><label for="cleanup-input" class="block text-sm font-medium text-gray-700 mb-2">粘贴文本内容</label><textarea id="cleanup-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处粘贴需要清理的文本..."></textarea></div>
-                        <div><label for="cleanup-output" class="block text-sm font-medium text-gray-700 mb-2">清理后结果</label><textarea id="cleanup-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea></div>
-                    </div>
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-                            <div class="flex items-center"><span class="mr-3 text-gray-700">移除Markdown标记</span><label class="switch"><input type="checkbox" id="cleanup-remove-markdown"><span class="slider"></span></label></div>
-                            <div class="flex items-center"><span class="mr-3 text-gray-700">移除空行</span><label class="switch"><input type="checkbox" id="cleanup-remove-empty-lines"><span class="slider"></span></label></div>
-                        </div>
-                        <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-                            <button id="cleanup-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始处理</button>
-                            <div class="tooltip flex-1"><span class="tooltiptext" id="cleanup-copy-tooltip">复制到剪贴板</span><button id="cleanup-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">复制结果</button></div>
-                            <button id="cleanup-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Text Joiner Tool -->
-                <div id="content-joiner" class="hidden">
-                    <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本拼接工具</h1><p class="text-gray-500 mt-2">将多行文本合并为单行，并使用自定义符号分割。</p></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div><label for="joiner-input" class="block text-sm font-medium text-gray-700 mb-2">原始多行文本</label><textarea id="joiner-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入或粘贴多行文本..."></textarea></div>
-                        <div>
-                            <label for="joiner-output" class="block text-sm font-medium text-gray-700 mb-2">拼接后单行文本</label>
-                            <div class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm overflow-auto font-mono text-sm">
-                                <code id="joiner-output" class="whitespace-pre-wrap break-all"></code>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="w-full max-w-md mb-4">
-                            <label for="joiner-separator" class="block text-sm font-medium text-gray-700 mb-2">分隔符 (可用 \n 代表换行符)</label>
-                            <input type="text" id="joiner-separator" value="\n" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-                            <button id="joiner-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始拼接</button>
-                            <div class="tooltip flex-1"><span class="tooltiptext" id="joiner-copy-tooltip">复制到剪贴板</span><button id="joiner-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">复制结果</button></div>
-                            <button id="joiner-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Text Injector Tool -->
-                <div id="content-injector" class="hidden">
-                    <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本加料工具</h1><p class="text-gray-500 mt-2">在每个字符之间插入自定义（或隐藏）的字符串。</p></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div><label for="injector-input" class="block text-sm font-medium text-gray-700 mb-2">原始文本</label><textarea id="injector-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入文本..."></textarea></div>
-                        <div><label for="injector-output" class="block text-sm font-medium text-gray-700 mb-2">加料后文本</label><textarea id="injector-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea></div>
-                    </div>
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="w-full max-w-md mb-4">
-                            <label for="injector-string" class="block text-sm font-medium text-gray-700 mb-2">要插入的字符串 (默认为零宽空格)</label>
-                            <div class="flex gap-2">
-                                <input type="text" id="injector-string" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此输入要插入的字符串">
-                                <button id="injector-zws-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-all text-sm">使用零宽字符</button>
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-                            <div class="tooltip flex-1"><span class="tooltiptext" id="injector-copy-tooltip">复制到剪贴板</span><button id="injector-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">复制结果</button></div>
-                            <button id="injector-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Word Counter -->
-                <div id="content-counter" class="hidden">
-                    <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">实时文本分析</h1><p class="text-gray-500 mt-2">在这里粘贴任何文本，立即获取详细统计数据。</p></div>
-                    <div class="flex flex-col">
-                        <textarea id="counter-input" class="w-full h-64 p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500" placeholder="请在此处输入或粘贴文本..."></textarea>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-center">
-                            <div class="bg-blue-50 p-3 rounded-lg"><div class="text-sm text-blue-500">汉字 (中/日)</div><div id="counter-hanzi-count" class="text-2xl font-bold text-blue-800">0</div></div>
-                            <div class="bg-green-50 p-3 rounded-lg"><div class="text-sm text-green-500">单词 (EN)</div><div id="counter-word-count" class="text-2xl font-bold text-green-800">0</div></div>
-                            <div class="bg-yellow-50 p-3 rounded-lg"><div class="text-sm text-yellow-500">标点符号</div><div id="counter-punc-count" class="text-2xl font-bold text-yellow-800">0</div></div>
-                            <div class="bg-gray-100 p-3 rounded-lg"><div class="text-sm text-gray-500">总字符</div><div id="counter-char-count" class="text-2xl font-bold text-gray-800">0</div></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Timestamp Converter -->
-                <div id="content-timestamp" class="hidden">
-                    <div class="text-center mb-8">
-                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">时间戳双向转换</h1>
-                        <p class="text-gray-500 mt-2">在日期时间和 Unix 时间戳 (秒) 之间进行双向转换。</p>
-                    </div>
-                    <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg mb-8 text-center">
-                        <div class="font-semibold text-lg">当前时间戳</div>
-                        <code id="current-timestamp" class="text-2xl md:text-3xl font-bold tracking-wider">...</code>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <!-- Date to Timestamp -->
-                        <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
-                            <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">日期 → 时间戳</h3>
-                            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div><label for="ts-year" class="block text-sm font-medium text-gray-700">年</label><input type="number" id="ts-year" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="2024"></div>
-                                <div><label for="ts-month" class="block text-sm font-medium text-gray-700">月</label><input type="number" id="ts-month" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="12"></div>
-                                <div><label for="ts-day" class="block text-sm font-medium text-gray-700">日</label><input type="number" id="ts-day" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="25"></div>
-                                <div><label for="ts-hour" class="block text-sm font-medium text-gray-700">时</label><input type="number" id="ts-hour" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                                <div><label for="ts-minute" class="block text-sm font-medium text-gray-700">分</label><input type="number" id="ts-minute" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                                <div><label for="ts-second" class="block text-sm font-medium text-gray-700">秒</label><input type="number" id="ts-second" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                            </div>
-                            <div class="pt-2">
-                                <label for="ts-output-from-date" class="block text-sm font-medium text-gray-700">结果时间戳</label>
-                                <div class="tooltip w-full"><span class="tooltiptext" id="ts-copy-tooltip-from-date">复制到剪贴板</span>
-                                    <input type="text" id="ts-output-from-date" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Timestamp to Date -->
-                        <div class="space-y-4 p-6 bg-gray-50 rounded-lg flex flex-col">
-                            <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">时间戳 → 日期</h3>
-                            <div>
-                                <label for="ts-input-from-ts" class="block text-sm font-medium text-gray-700">输入时间戳 (秒)</label>
-                                <input type="number" id="ts-input-from-ts" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="例如: 1718534400">
-                            </div>
-                            <div class="flex-grow">
-                                <label for="ts-output-from-ts" class="block text-sm font-medium text-gray-700">结果日期</label>
-                                <div class="tooltip w-full"><span class="tooltiptext" id="ts-copy-tooltip-from-ts">复制到剪贴板</span>
-                                    <input type="text" id="ts-output-from-ts" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Duration Converter -->
-                 <div id="content-duration" class="hidden">
-                    <div class="text-center mb-8">
-                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">时间段双向转换</h1>
-                        <p class="text-gray-500 mt-2">在“天/时/分/秒”和总秒数之间进行双向转换。</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <!-- D/H/M/S to Seconds -->
-                        <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
-                            <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">复合时间 → 总秒数</h3>
-                            <div class="flex flex-wrap justify-center gap-2 mb-4">
-                                <button class="quick-duration-btn" data-hours="1">1小时</button>
-                                <button class="quick-duration-btn" data-days="1">1天</button>
-                                <button class="quick-duration-btn" data-days="7">7天</button>
-                                <button class="quick-duration-btn" data-days="14">14天</button>
-                                <button class="quick-duration-btn" data-days="31">31天</button>
-                                <button class="quick-duration-btn" data-days="365">365天</button>
-                                <button class="quick-duration-btn" data-days="99999">永远</button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div><label for="dr-days" class="block text-sm font-medium text-gray-700">天</label><input type="number" id="dr-days" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                                <div><label for="dr-hours" class="block text-sm font-medium text-gray-700">小时</label><input type="number" id="dr-hours" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                                <div><label for="dr-minutes" class="block text-sm font-medium text-gray-700">分钟</label><input type="number" id="dr-minutes" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                                <div><label for="dr-seconds" class="block text-sm font-medium text-gray-700">秒</label><input type="number" id="dr-seconds" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                            </div>
-                            <div>
-                                <label for="dr-output-total-seconds" class="block text-sm font-medium text-gray-700">总秒数</label>
-                                <div class="tooltip w-full"><span class="tooltiptext" id="dr-copy-tooltip-from-duration">复制到剪贴板</span>
-                                    <input type="text" id="dr-output-total-seconds" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Seconds to D/H/M/S -->
-                        <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
-                            <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">总秒数 → 复合时间</h3>
-                            <div>
-                                <label for="dr-input-total-seconds" class="block text-sm font-medium text-gray-700">输入总秒数</label>
-                                <input type="number" id="dr-input-total-seconds" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="例如: 86400">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4 pt-2">
-                                <div><label class="block text-sm font-medium text-gray-700">天</label><input type="text" id="dr-output-days" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-                                <div><label class="block text-sm font-medium text-gray-700">小时</label><input type="text" id="dr-output-hours" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-                                <div><label class="block text-sm font-medium text-gray-700">分钟</label><input type="text" id="dr-output-minutes" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-                                <div><label class="block text-sm font-medium text-gray-700">秒</label><input type="text" id="dr-output-seconds" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Base64 Encoder/Decoder -->
-                <div id="content-base64" class="hidden">
-                    <div class="text-center mb-8">
-                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Base64 编码/解码</h1>
-                        <p class="text-gray-500 mt-2">对文本进行 Base64 编码或从 Base64 解码。</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div>
-                            <label for="base64-input" class="block text-sm font-medium text-gray-700 mb-2">原始/Base64 文本</label>
-                            <textarea id="base64-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入文本..."></textarea>
-                        </div>
-                        <div>
-                            <label for="base64-output" class="block text-sm font-medium text-gray-700 mb-2">结果</label>
-                            <textarea id="base64-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-                        <button id="base64-encode-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">编码</button>
-                        <button id="base64-decode-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">解码</button>
-                        <div class="tooltip flex-1">
-                            <span class="tooltiptext" id="base64-copy-tooltip">复制到剪贴板</span>
-                            <button id="base64-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">复制结果</button>
-                        </div>
-                    </div>
-                </div>
-
-                
-                <!-- Escape Tool -->
-                <div id="content-escape" class="hidden">
-                    <div class="text-center mb-8">
-                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本转义（字节字面量）</h1>
-                        <p class="text-gray-500 mt-2">字符串 ⇄ 十六进制转义序列，支持 Python 字节字面量 b'\x..' 与连续转义 \x..</p>
-                    </div>
-
-                    <div id="escape-error" class="hidden mb-4 p-3 rounded-lg bg-red-100 text-red-700 text-sm"></div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div>
-                            <label for="escape-input" class="block text-sm font-medium text-gray-700 mb-2">输入</label>
-                            <textarea id="escape-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此粘贴字符串或字节字面量...&#10;示例: 我爱你&#10;示例: b'\xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0'&#10;示例: \xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0"></textarea>
-                        </div>
-                        <div>
-                            <label for="escape-output" class="block text-sm font-medium text-gray-700 mb-2">输出</label>
-                            <textarea id="escape-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4 p-4 bg-gray-50 rounded-lg mb-6">
-                        <div class="flex flex-wrap items-center gap-6">
-                            <div class="flex items-center">
-                                <span class="mr-3 text-gray-700">源类型</span>
-                                <label class="mr-4 inline-flex items-center">
-                                    <input type="radio" name="escape-source" id="escape-source-text" value="text" class="mr-2" checked>
-                                    <span>字符串 → 转义</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="escape-source" id="escape-source-bytes" value="bytes" class="mr-2">
-                                    <span>字节字面量/转义 → 字符串</span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center">
-                                <span class="mr-3 text-gray-700">编码</span>
-                                <select id="escape-encoding" class="p-2 border border-gray-300 rounded-md">
-                                    <option value="utf8" selected>UTF-8</option>
-                                    <option value="latin1">Latin-1</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-6">
-                            <div class="flex items-center" id="escape-outmode-group">
-                                <span class="mr-3 text-gray-700">输出模式</span>
-                                <label class="mr-4 inline-flex items-center">
-                                    <input type="radio" name="escape-outmode" id="escape-out-python" value="python" class="mr-2">
-                                    <span>Python 字节字面量 b'\x..'</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="escape-outmode" id="escape-out-plain" value="plain" class="mr-2" checked>
-                                    <span>连续转义 \x..</span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center" id="escape-hexcase-group">
-                                <span class="mr-3 text-gray-700">十六进制</span>
-                                <select id="escape-hexcase" class="p-2 border border-gray-300 rounded-md">
-                                    <option value="lower" selected>小写</option>
-                                    <option value="upper">大写</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-                        <button id="escape-convert-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始转换</button>
-                        <div class="tooltip flex-1">
-                            <span class="tooltiptext" id="escape-copy-tooltip">复制到剪贴板</span>
-                            <button id="escape-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">复制结果</button>
-                        </div>
-                        <button id="escape-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-                    </div>
-                </div>
-                <!-- Simplified/Traditional Converter -->
-                <div id="content-converter" class="hidden">
-                    <div class="text-center mb-8">
-                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">简繁体转换</h1>
-                        <p class="text-gray-500 mt-2">在简体中文和繁体中文之间进行转换。</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div>
-                            <label for="converter-input" class="block text-sm font-medium text-gray-700 mb-2">输入文本</label>
-                            <textarea id="converter-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入简体或繁体文本..."></textarea>
-                        </div>
-                        <div>
-                            <label for="converter-output" class="block text-sm font-medium text-gray-700 mb-2">输出结果</label>
-                            <textarea id="converter-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
-                        </div>
-                    </div>
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="flex items-center gap-x-6 gap-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-                            <div class="flex items-center">
-                                <input id="converter-convert-quotes" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                                <label for="converter-convert-quotes" class="ml-2 block text-sm text-gray-900">同时转换日式引号『』为中式引号【】</label>
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-                            <button id="converter-t2s-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">繁体 → 简体</button>
-                            <button id="converter-s2t-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">简体 → 繁体</button>
-                            <div class="tooltip flex-1">
-                                <span class="tooltiptext" id="converter-copy-tooltip">复制到剪贴板</span>
-                                <button id="converter-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">复制结果</button>
-                            </div>
-                        </div>
-                    </div>
-    
-                    </div>
-            </div>
-        </div>
+  <noscript>
+    <div class="container mx-auto max-w-3xl">
+      <div class="bg-red-50 text-red-700 p-4 rounded-lg shadow">此网站需要启用 JavaScript 才能使用全部功能。</div>
     </div>
+  </noscript>
 
-    <script>
-        // --- Element Selectors ---
-        const tabs = { subtitle: document.getElementById('tab-subtitle'), cleanup: document.getElementById('tab-cleanup'), joiner: document.getElementById('tab-joiner'), injector: document.getElementById('tab-injector'), counter: document.getElementById('tab-counter'), timestamp: document.getElementById('tab-timestamp'), duration: document.getElementById('tab-duration'), base64: document.getElementById('tab-base64'), escape: document.getElementById('tab-escape'), converter: document.getElementById('tab-converter') };
-        const contents = { subtitle: document.getElementById('content-subtitle'), cleanup: document.getElementById('content-cleanup'), joiner: document.getElementById('content-joiner'), injector: document.getElementById('content-injector'), counter: document.getElementById('content-counter'), timestamp: document.getElementById('content-timestamp'), duration: document.getElementById('content-duration'), base64: document.getElementById('content-base64'), escape: document.getElementById('content-escape'), converter: document.getElementById('content-converter') };
+  <div class="container mx-auto max-w-5xl">
+    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-10">
+      <!-- Tab Navigation -->
+      <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
+          <button id="tab-subtitle" class="tab-active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-subtitle">字幕工具</button>
+          <button id="tab-cleanup" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-cleanup">文本清理</button>
+          <button id="tab-joiner" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-joiner">文本拼接</button>
+          <button id="tab-injector" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-injector">文本加料</button>
+          <button id="tab-counter" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-counter">字数统计</button>
+          <button id="tab-timestamp" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-timestamp">时间戳转换</button>
+          <button id="tab-duration" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-duration">时间段转换</button>
+          <button id="tab-base64" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-base64">Base64 编码</button>
+          <button id="tab-escape" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-escape">文本转义</button>
+          <button id="tab-converter" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-converter">简繁转换</button>
+        </nav>
+      </div>
+
+      <!-- Tab Content -->
+      <div>
+        <!-- Subtitle Tool -->
+        <div id="content-subtitle">
+          <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">字幕批量处理工具</h1>
+            <p class="text-gray-500 mt-2">智能识别 SRT, VTT, LRC, ASS 字幕，支持批量处理和文件夹上传。</p>
+          </div>
+          
+          <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Left Column: Batch Processing -->
+            <div class="lg:w-1/2 flex flex-col">
+              <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">批量文件处理</h2>
+              <div class="flex-grow flex flex-col">
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                  <label id="subtitle-files-label" for="subtitle-files-input" class="flex-1 text-center cursor-pointer bg-white border border-blue-500 text-blue-500 hover:bg-blue-50 font-semibold py-3 px-6 rounded-lg transition-all">上传多个文件</label>
+                  <input type="file" id="subtitle-files-input" accept=".srt,.lrc,.ass,.ssa,.vtt" class="hidden" multiple>
+                  
+                  <label id="subtitle-folder-label" for="subtitle-folder-input" class="flex-1 text-center cursor-pointer bg-white border border-indigo-500 text-indigo-500 hover:bg-indigo-50 font-semibold py-3 px-6 rounded-lg transition-all">选择文件夹</label>
+                  <input type="file" id="subtitle-folder-input" class="hidden" webkitdirectory directory>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 flex-grow flex flex-col">
+                  <div class="flex justify-between items-center mb-2">
+                    <h3 id="subtitle-results-status" class="text-sm font-medium text-gray-600">处理结果</h3>
+                    <button id="subtitle-clear-btn" class="text-sm text-gray-500 hover:text-gray-700">清空列表</button>
+                  </div>
+                  <div id="subtitle-results-container" class="flex-grow overflow-y-auto space-y-1 pr-2">
+                    <p class="text-gray-400 text-center pt-8">请上传文件或文件夹...</p>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-auto pt-4">
+                <button id="subtitle-download-zip-btn" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-all" disabled>下载全部结果 (.zip)</button>
+              </div>
+            </div>
+
+            <!-- Right Column: Single Paste -->
+            <div class="lg:w-1/2 flex flex-col">
+              <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">单个文本处理</h2>
+              <div class="flex-grow flex flex-col gap-4">
+                <div class="flex-1 flex flex-col">
+                  <label for="subtitle-paste-input" class="block text-sm font-medium text-gray-700 mb-2">在此处粘贴字幕内容</label>
+                  <textarea id="subtitle-paste-input" class="w-full flex-grow p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="工具会自动识别格式..."></textarea>
+                </div>
+                <div class="flex-1 flex flex-col">
+                  <label for="subtitle-paste-output" class="block text-sm font-medium text-gray-700 mb-2">纯文本结果</label>
+                  <textarea id="subtitle-paste-output" readonly class="w-full flex-grow p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
+                </div>
+              </div>
+              <div class="mt-auto pt-4">
+                <div class="flex gap-4">
+                  <button id="subtitle-paste-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all">处理粘贴内容</button>
+                  <div class="tooltip flex-1"><span class="tooltiptext" id="subtitle-paste-tooltip">复制到剪贴板</span><button id="subtitle-paste-copy-btn" class="w-full bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Text Cleanup Tool -->
+        <div id="content-cleanup" class="hidden">
+          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本清理工具</h1><p class="text-gray-500 mt-2">自定义移除 Markdown 标记和空行。</p></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div><label for="cleanup-input" class="block text-sm font-medium text-gray-700 mb-2">粘贴文本内容</label><textarea id="cleanup-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处粘贴需要清理的文本..."></textarea></div>
+            <div><label for="cleanup-output" class="block text-sm font-medium text-gray-700 mb-2">清理后结果</label><textarea id="cleanup-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea></div>
+          </div>
+          <div class="flex flex-col items-center gap-4">
+            <div class="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
+              <div class="flex items-center"><span class="mr-3 text-gray-700">移除Markdown标记</span><label class="switch"><input type="checkbox" id="cleanup-remove-markdown"><span class="slider"></span></label></div>
+              <div class="flex items-center"><span class="mr-3 text-gray-700">移除空行</span><label class="switch"><input type="checkbox" id="cleanup-remove-empty-lines"><span class="slider"></span></label></div>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
+              <button id="cleanup-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始处理</button>
+              <div class="tooltip flex-1"><span class="tooltiptext" id="cleanup-copy-tooltip">复制到剪贴板</span><button id="cleanup-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
+              <button id="cleanup-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Text Joiner Tool -->
+        <div id="content-joiner" class="hidden">
+          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本拼接工具</h1><p class="text-gray-500 mt-2">将多行文本合并为单行，并使用自定义符号分割。</p></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div><label for="joiner-input" class="block text-sm font-medium text-gray-700 mb-2">原始多行文本</label><textarea id="joiner-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入或粘贴多行文本..."></textarea></div>
+            <div>
+              <label for="joiner-output" class="block text-sm font-medium text-gray-700 mb-2">拼接后单行文本</label>
+              <div class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm overflow-auto font-mono text-sm">
+                <code id="joiner-output" class="whitespace-pre-wrap break-all"></code>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-full max-w-md mb-4">
+              <label for="joiner-separator" class="block text-sm font-medium text-gray-700 mb-2">分隔符 (可用 \n 代表换行符)</label>
+              <input type="text" id="joiner-separator" value="\n" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
+              <button id="joiner-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始拼接</button>
+              <div class="tooltip flex-1"><span class="tooltiptext" id="joiner-copy-tooltip">复制到剪贴板</span><button id="joiner-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
+              <button id="joiner-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
+            </div>
+          </div>
+        </div>
         
-        // --- Tool-specific Elements ---
-        const subtitleTool = { pasteInput: document.getElementById('subtitle-paste-input'), pasteOutput: document.getElementById('subtitle-paste-output'), pasteProcessBtn: document.getElementById('subtitle-paste-process-btn'), pasteCopyBtn: document.getElementById('subtitle-paste-copy-btn'), pasteTooltip: document.getElementById('subtitle-paste-tooltip'), filesInput: document.getElementById('subtitle-files-input'), folderInput: document.getElementById('subtitle-folder-input'), resultsContainer: document.getElementById('subtitle-results-container'), resultsStatus: document.getElementById('subtitle-results-status'), downloadZipBtn: document.getElementById('subtitle-download-zip-btn'), clearBtn: document.getElementById('subtitle-clear-btn') };
-        const cleanupTool = { input: document.getElementById('cleanup-input'), output: document.getElementById('cleanup-output'), processBtn: document.getElementById('cleanup-process-btn'), copyBtn: document.getElementById('cleanup-copy-btn'), downloadBtn: document.getElementById('cleanup-download-btn'), removeMarkdown: document.getElementById('cleanup-remove-markdown'), removeEmptyLines: document.getElementById('cleanup-remove-empty-lines'), tooltip: document.getElementById('cleanup-copy-tooltip') };
-        const joinerTool = { input: document.getElementById('joiner-input'), output: document.getElementById('joiner-output'), separator: document.getElementById('joiner-separator'), processBtn: document.getElementById('joiner-process-btn'), copyBtn: document.getElementById('joiner-copy-btn'), downloadBtn: document.getElementById('joiner-download-btn'), tooltip: document.getElementById('joiner-copy-tooltip') };
-        const injectorTool = { input: document.getElementById('injector-input'), output: document.getElementById('injector-output'), stringInput: document.getElementById('injector-string'), zwsBtn: document.getElementById('injector-zws-btn'), copyBtn: document.getElementById('injector-copy-btn'), downloadBtn: document.getElementById('injector-download-btn'), tooltip: document.getElementById('injector-copy-tooltip') };
-        const counterTool = { input: document.getElementById('counter-input'), hanziCount: document.getElementById('counter-hanzi-count'), wordCount: document.getElementById('counter-word-count'), puncCount: document.getElementById('counter-punc-count'), charCount: document.getElementById('counter-char-count') };
-        const timestampTool = {
-            dateInputs: document.querySelectorAll('.ts-date-input'),
-            year: document.getElementById('ts-year'), month: document.getElementById('ts-month'), day: document.getElementById('ts-day'),
-            hour: document.getElementById('ts-hour'), minute: document.getElementById('ts-minute'), second: document.getElementById('ts-second'),
-            outputFromDate: document.getElementById('ts-output-from-date'),
-            tooltipFromDate: document.getElementById('ts-copy-tooltip-from-date'),
-            inputFromTs: document.getElementById('ts-input-from-ts'),
-            outputFromTs: document.getElementById('ts-output-from-ts'),
-            tooltipFromTs: document.getElementById('ts-copy-tooltip-from-ts'),
-            currentDisplay: document.getElementById('current-timestamp')
-        };
-        const durationTool = {
-            durationInputs: document.querySelectorAll('.dr-input'),
-            days: document.getElementById('dr-days'), hours: document.getElementById('dr-hours'),
-            minutes: document.getElementById('dr-minutes'), seconds: document.getElementById('dr-seconds'),
-            outputTotalSeconds: document.getElementById('dr-output-total-seconds'),
-            tooltipFromDuration: document.getElementById('dr-copy-tooltip-from-duration'),
-            inputTotalSeconds: document.getElementById('dr-input-total-seconds'),
-            outputDays: document.getElementById('dr-output-days'), outputHours: document.getElementById('dr-output-hours'),
-            outputMinutes: document.getElementById('dr-output-minutes'), outputSeconds: document.getElementById('dr-output-seconds'),
-            quickBtns: document.querySelectorAll('.quick-duration-btn')
-        };
-        const base64Tool = { input: document.getElementById('base64-input'), output: document.getElementById('base64-output'), encodeBtn: document.getElementById('base64-encode-btn'), decodeBtn: document.getElementById('base64-decode-btn'), copyBtn: document.getElementById('base64-copy-btn'), tooltip: document.getElementById('base64-copy-tooltip') };
-        const converterTool = {
-            input: document.getElementById('converter-input'),
-            output: document.getElementById('converter-output'),
-            t2sBtn: document.getElementById('converter-t2s-btn'),
-            s2tBtn: document.getElementById('converter-s2t-btn'),
-            copyBtn: document.getElementById('converter-copy-btn'),
-            quotesCheckbox: document.getElementById('converter-convert-quotes'),
-            tooltip: document.getElementById('converter-copy-tooltip'),
-        };
-        const escapeTool = {
-            input: document.getElementById('escape-input'),
-            output: document.getElementById('escape-output'),
-            error: document.getElementById('escape-error'),
-            copyBtn: document.getElementById('escape-copy-btn'),
-            downloadBtn: document.getElementById('escape-download-btn'),
-            tooltip: document.getElementById('escape-copy-tooltip'),
-            convertBtn: document.getElementById('escape-convert-btn'),
-            sourceText: document.getElementById('escape-source-text'),
-            sourceBytes: document.getElementById('escape-source-bytes'),
-            encoding: document.getElementById('escape-encoding'),
-            outPython: document.getElementById('escape-out-python'),
-            outPlain: document.getElementById('escape-out-plain'),
-            hexCase: document.getElementById('escape-hexcase'),
-            outmodeGroup: document.getElementById('escape-outmode-group'),
-            hexcaseGroup: document.getElementById('escape-hexcase-group'),
-        };
+        <!-- Text Injector Tool -->
+        <div id="content-injector" class="hidden">
+          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本加料工具</h1><p class="text-gray-500 mt-2">在每个字符之间插入自定义（或隐藏）的字符串。</p></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div><label for="injector-input" class="block text-sm font-medium text-gray-700 mb-2">原始文本</label><textarea id="injector-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入文本..."></textarea></div>
+            <div><label for="injector-output" class="block text-sm font-medium text-gray-700 mb-2">加料后文本</label><textarea id="injector-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea></div>
+          </div>
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-full max-w-md mb-4">
+              <label for="injector-string" class="block text-sm font-medium text-gray-700 mb-2">要插入的字符串 (默认为零宽空格)</label>
+              <div class="flex gap-2">
+                <input type="text" id="injector-string" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此输入要插入的字符串">
+                <button id="injector-zws-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-all text-sm" aria-label="使用零宽字符">使用零宽字符</button>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
+              <div class="tooltip flex-1"><span class="tooltiptext" id="injector-copy-tooltip">复制到剪贴板</span><button id="injector-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
+              <button id="injector-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
+            </div>
+          </div>
+        </div>
 
-        // Disable converter buttons until OpenCC is ready
-        function setConverterButtonsEnabled(enabled) {
-            try {
-                converterTool.t2sBtn.disabled = !enabled;
-                converterTool.s2tBtn.disabled = !enabled;
-                converterTool.t2sBtn.textContent = enabled ? '繁体 → 简体' : '繁体 → 简体 (加载中)';
-                converterTool.s2tBtn.textContent = enabled ? '简体 → 繁体' : '简体 → 繁体 (加载中)';
-            } catch (_) {}
-        }
-        setConverterButtonsEnabled(false);
-
-        // --- State variables ---
-        let joinerResult = '';
-        let batchFiles = [];
-        let isUpdatingTimestamp = false;
-        let isUpdatingDuration = false;
-
-        // --- Tab Switching Logic ---
-        function switchTab(activeKey) {
-            try {
-                const tabKeys = Object.keys(tabs);
-                const contentKeys = Object.keys(contents);
-                // 基本一致性检查
-                if (tabKeys.length !== contentKeys.length) {
-                    }
-                tabKeys.forEach(key => {
-                    const tabEl = tabs[key];
-                    const contentEl = contents[key];
-                    if (!tabEl) {
-                        return;
-                    }
-                    if (!contentEl) {
-                        return;
-                    }
-                    const isActive = key === activeKey;
-                    tabEl.classList.toggle('tab-active', isActive);
-                    tabEl.classList.toggle('text-gray-500', !isActive);
-                    tabEl.classList.toggle('border-gray-200', !isActive);
-                    contentEl.classList.toggle('hidden', !isActive);
-                });
-                } catch (e) {
-                }
-        }
-        Object.keys(tabs).forEach(key => tabs[key].addEventListener('click', () => switchTab(key)));
-
-        // --- Core Functions ---
-        function copyToClipboard(text, tooltipEl) {
-            if (!text && text !== 0) return;
-            // Use execCommand for broader compatibility
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = 'fixed'; // Prevent scrolling to bottom of page in MS Edge.
-            textArea.style.top = '-9999px';
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                const successful = document.execCommand('copy');
-                tooltipEl.textContent = successful ? '已复制!' : '复制失败!';
-            } catch (err) {
-                tooltipEl.textContent = '复制失败!';
-            }
-            document.body.removeChild(textArea);
-
-            tooltipEl.parentElement.classList.add('show');
-            setTimeout(() => {
-                tooltipEl.parentElement.classList.remove('show');
-                tooltipEl.textContent = '复制到剪贴板';
-            }, 2000);
-        }
-
-        function analyzeText(text) {
-            if (!text) return { hanzi: 0, words: 0, punctuation: 0, totalChars: 0 };
-            const wordRegex = /[a-zA-Z0-9_']+/g;
-            const hanziRegex = /[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff]/g;
-            const words = (text.match(wordRegex) || []).length;
-            let remainingText = text.replace(wordRegex, '');
-            const hanzi = (remainingText.match(hanziRegex) || []).length;
-            remainingText = remainingText.replace(hanziRegex, '').replace(/\s/g, '');
-            const punctuation = remainingText.length;
-            return { hanzi, words, punctuation, totalChars: text.length };
-        }
-
-        function processSrt(text) {
-            if (!text) return '';
-            const timeArrowPattern = new RegExp(String.raw`\\d{2}:\\d{2}:\\d{2}[,.]\\d{3}\\s*-->\\s*\\d{2}:\\d{2}:\\d{2}[,.]\\d{3}[\\r\\n]+`, 'gm');
-            const htmlTagPattern = new RegExp('<[^>]*>', 'g');
-            return text
-                .replace(/^\d+[\r\n]+/gm, '')
-                .replace(timeArrowPattern, '')
-                .replace(htmlTagPattern, '')
-                .replace(/^\s*[\r\n]/gm, '')
-                .trim();
-        }
-
-        function processVtt(text) {
-            if (!text) return '';
-            const timeArrowLinePattern = new RegExp(String.raw`\\d{2}:\\d{2}:\\d{2}[,.]\\d{3}\\s*-->\\s*\\d{2}:\\d{2}:\\d{2}[,.]\\d{3}.*[\\r\\n]+`, 'gm');
-            const htmlTagPattern = new RegExp('<[^>]*>', 'g');
-            return text
-                .replace(/^WEBVTT[\r\n\s]*/, '')
-                .replace(/^\d+[\r\n]+/gm, '')
-                .replace(/NOTE[\s\S]*?(\r?\n){2,}/gm, '')
-                .replace(timeArrowLinePattern, '')
-                .replace(htmlTagPattern, '')
-                .replace(/^\s*[\r\n]/gm, '')
-                .trim();
-        }
-
-        function processLrc(text) {
-            if (!text) return '';
-            return text.replace(/\[\d{2}:\d{2}[,.]\d{2,3}\]|\[[a-z]{2,}:.*?\]/g, '').replace(/^\s*[\r\n]/gm, '').trim();
-        }
-
-        function processAss(text) {
-            if (!text) return '';
-            const dialogueRegex = /^Dialogue:\s*[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([\s\S]*)/i;
-            return text.split(/\r?\n/).map(line => {
-                const match = line.match(dialogueRegex);
-                return match && match[1] ? match[1].replace(/{[^}]*}/g, '') : null;
-            }).filter(Boolean).join('\n');
-        }
+        <!-- Word Counter -->
+        <div id="content-counter" class="hidden">
+          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">实时文本分析</h1><p class="text-gray-500 mt-2">在这里粘贴任何文本，立即获取详细统计数据。</p></div>
+          <div class="flex flex-col">
+            <textarea id="counter-input" class="w-full h-64 p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500" placeholder="请在此处输入或粘贴文本..."></textarea>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-center">
+              <div class="bg-blue-50 p-3 rounded-lg"><div class="text-sm text-blue-500">汉字 (中/日)</div><div id="counter-hanzi-count" class="text-2xl font-bold text-blue-800">0</div></div>
+              <div class="bg-green-50 p-3 rounded-lg"><div class="text-sm text-green-500">单词 (EN)</div><div id="counter-word-count" class="text-2xl font-bold text-green-800">0</div></div>
+              <div class="bg-yellow-50 p-3 rounded-lg"><div class="text-sm text-yellow-500">标点符号</div><div id="counter-punc-count" class="text-2xl font-bold text-yellow-800">0</div></div>
+              <div class="bg-gray-100 p-3 rounded-lg"><div class="text-sm text-gray-500">总字符</div><div id="counter-char-count" class="text-2xl font-bold text-gray-800">0</div></div>
+            </div>
+          </div>
+        </div>
         
-        function detectSubtitleFormat(text) {
-            if (text.trim().startsWith('WEBVTT')) return 'vtt';
-            if (text.includes('-->') && /^\d+[\r\n\s]*\d{2}:\d{2}:\d{2}/.test(text.substring(0, 100))) return 'srt';
-            if (/\[\d{2}:\d{2}[,.]\d{2,3}\]/.test(text.substring(0, 100))) return 'lrc';
-            if (text.toLowerCase().includes('dialogue:')) return 'ass';
-            return 'unknown';
-        }
+        <!-- Timestamp Converter -->
+        <div id="content-timestamp" class="hidden">
+          <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">时间戳双向转换</h1>
+            <p class="text-gray-500 mt-2">在日期时间和 Unix 时间戳 (秒) 之间进行双向转换。</p>
+          </div>
+          <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg mb-8 text-center">
+            <div class="font-semibold text-lg">当前时间戳</div>
+            <code id="current-timestamp" class="text-2xl md:text-3xl font-bold tracking-wider">...</code>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Date to Timestamp -->
+            <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
+              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">日期 → 时间戳</h3>
+              <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <div><label for="ts-year" class="block text-sm font-medium text-gray-700">年</label><input type="number" id="ts-year" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="2024"></div>
+                <div><label for="ts-month" class="block text-sm font-medium text-gray-700">月</label><input type="number" id="ts-month" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="12"></div>
+                <div><label for="ts-day" class="block text-sm font-medium text-gray-700">日</label><input type="number" id="ts-day" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="25"></div>
+                <div><label for="ts-hour" class="block text-sm font-medium text-gray-700">时</label><input type="number" id="ts-hour" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
+                <div><label for="ts-minute" class="block text-sm font-medium text-gray-700">分</label><input type="number" id="ts-minute" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
+                <div><label for="ts-second" class="block text-sm font-medium text-gray-700">秒</label><input type="number" id="ts-second" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
+              </div>
+              <div class="pt-2">
+                <label for="ts-output-from-date" class="block text-sm font-medium text-gray-700">结果时间戳</label>
+                <div class="tooltip w-full"><span class="tooltiptext" id="ts-copy-tooltip-from-date">复制到剪贴板</span>
+                  <input type="text" id="ts-output-from-date" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
+                </div>
+              </div>
+            </div>
+            <!-- Timestamp to Date -->
+            <div class="space-y-4 p-6 bg-gray-50 rounded-lg flex flex-col">
+              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">时间戳 → 日期</h3>
+              <div>
+                <label for="ts-input-from-ts" class="block text-sm font-medium text-gray-700">输入时间戳 (秒)</label>
+                <input type="number" id="ts-input-from-ts" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="例如: 1718534400">
+              </div>
+              <div class="flex-grow">
+                <label for="ts-output-from-ts" class="block text-sm font-medium text-gray-700">结果日期</label>
+                <div class="tooltip w-full"><span class="tooltiptext" id="ts-copy-tooltip-from-ts">复制到剪贴板</span>
+                  <input type="text" id="ts-output-from-ts" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        function processSubtitle(text, format) {
-            switch(format) {
-                case 'vtt': return processVtt(text);
-                case 'srt': return processSrt(text);
-                case 'lrc': return processLrc(text);
-                case 'ass': return processAss(text);
-                default: return "未知或不支持的格式";
-            }
-        }
-
-        function processCleanup(text, removeMarkdown, removeEmptyLines) {
-            if (!text) return '';
-            let lines = text.split(/\r?\n/);
-            if (removeMarkdown) {
-                lines = lines.map(line => line.replace(/^[#*>\-`]+\s*/, '').replace(/(\*\*|__)(.*?)\1/g, '$2').replace(/(\*|_)(.*?)\1/g, '$2').replace(/`([^`]+)`/g, '$1').replace(/!\[[^\]]*\]\([^)]+\)/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'));
-            }
-            if (removeEmptyLines) {
-                return lines.filter(line => line.trim() !== '').join('\n');
-            }
-            return lines.join('\n');
-        }
+        <!-- Duration Converter -->
+        <div id="content-duration" class="hidden">
+          <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">时间段双向转换</h1>
+            <p class="text-gray-500 mt-2">在“天/时/分/秒”和总秒数之间进行双向转换。</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- D/H/M/S to Seconds -->
+            <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
+              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">复合时间 → 总秒数</h3>
+              <div class="flex flex-wrap justify-center gap-2 mb-4">
+                <button class="quick-duration-btn" data-hours="1">1小时</button>
+                <button class="quick-duration-btn" data-days="1">1天</button>
+                <button class="quick-duration-btn" data-days="7">7天</button>
+                <button class="quick-duration-btn" data-days="14">14天</button>
+                <button class="quick-duration-btn" data-days="31">31天</button>
+                <button class="quick-duration-btn" data-days="365">365天</button>
+                <button class="quick-duration-btn" data-days="99999">永远</button>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div><label for="dr-days" class="block text-sm font-medium text-gray-700">天</label><input type="number" id="dr-days" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
+                <div><label for="dr-hours" class="block text-sm font-medium text-gray-700">小时</label><input type="number" id="dr-hours" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
+                <div><label for="dr-minutes" class="block text-sm font-medium text-gray-700">分钟</label><input type="number" id="dr-minutes" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
+                <div><label for="dr-seconds" class="block text-sm font-medium text-gray-700">秒</label><input type="number" id="dr-seconds" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
+              </div>
+              <div>
+                <label for="dr-output-total-seconds" class="block text-sm font-medium text-gray-700">总秒数</label>
+                <div class="tooltip w-full"><span class="tooltiptext" id="dr-copy-tooltip-from-duration">复制到剪贴板</span>
+                  <input type="text" id="dr-output-total-seconds" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
+                </div>
+              </div>
+            </div>
+            <!-- Seconds to D/H/M/S -->
+            <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
+              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">总秒数 → 复合时间</h3>
+              <div>
+                <label for="dr-input-total-seconds" class="block text-sm font-medium text-gray-700">输入总秒数</label>
+                <input type="number" id="dr-input-total-seconds" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="例如: 86400">
+              </div>
+              <div class="grid grid-cols-2 gap-4 pt-2">
+                <div><label class="block text-sm font-medium text-gray-700">天</label><input type="text" id="dr-output-days" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
+                <div><label class="block text-sm font-medium text-gray-700">小时</label><input type="text" id="dr-output-hours" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
+                <div><label class="block text-sm font-medium text-gray-700">分钟</label><input type="text" id="dr-output-minutes" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
+                <div><label class="block text-sm font-medium text-gray-700">秒</label><input type="text" id="dr-output-seconds" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
+              </div>
+            </div>
+          </div>
+        </div>
         
-        function processJoiner(text, separator) {
-            if (!text) return '';
-            const actualSeparator = separator.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
-            const lines = text.split(/\r?\n/);
-            const nonEmptyLines = lines.filter(line => line.trim() !== '');
-            return nonEmptyLines.join(actualSeparator);
-        }
+        <!-- Base64 Encoder/Decoder -->
+        <div id="content-base64" class="hidden">
+          <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Base64 编码/解码</h1>
+            <p class="text-gray-500 mt-2">对文本进行 Base64 编码或从 Base64 解码。</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label for="base64-input" class="block text-sm font-medium text-gray-700 mb-2">原始/Base64 文本</label>
+              <textarea id="base64-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入文本..."></textarea>
+            </div>
+            <div>
+              <label for="base64-output" class="block text-sm font-medium text-gray-700 mb-2">结果</label>
+              <textarea id="base64-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center justify-center gap-4 w-full">
+            <button id="base64-encode-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">编码</button>
+            <button id="base64-decode-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">解码</button>
+            <div class="tooltip flex-1">
+              <span class="tooltiptext" id="base64-copy-tooltip">复制到剪贴板</span>
+              <button id="base64-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button>
+            </div>
+          </div>
+        </div>
 
-        function processInjector(text, injectionString) {
-            if (!text) return '';
-            return [...text].join(injectionString);
-        }
+        <!-- Escape Tool -->
+        <div id="content-escape" class="hidden">
+          <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本转义（字节字面量）</h1>
+            <p class="text-gray-500 mt-2">字符串 ⇄ 十六进制转义序列，支持 Python 字节字面量 b'\x..' 与连续转义 \x..</p>
+          </div>
 
-        function base64Encode(text) {
-            try {
-                return btoa(unescape(encodeURIComponent(text)));
-            } catch (e) {
-                return '编码失败：无效的输入字符。';
-            }
-        }
+          <div id="escape-error" class="hidden mb-4 p-3 rounded-lg bg-red-100 text-red-700 text-sm"></div>
 
-        function base64Decode(text) {
-            try {
-                return decodeURIComponent(escape(atob(text)));
-            } catch (e) {
-                return '解码失败：无效的 Base64 字符串。';
-            }
-        }
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label for="escape-input" class="block text-sm font-medium text-gray-700 mb-2">输入</label>
+              <textarea id="escape-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此粘贴字符串或字节字面量&#10;示例: 我爱你&#10;示例: b'\xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0'&#10;示例: \xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0"></textarea>
+            </div>
+            <div>
+              <label for="escape-output" class="block text-sm font-medium text-gray-700 mb-2">输出</label>
+              <textarea id="escape-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
+            </div>
+          </div>
 
-        // --- Escape Tool Helpers ---
+          <div class="space-y-4 p-4 bg-gray-50 rounded-lg mb-6">
+            <div class="flex flex-wrap items-center gap-6">
+              <div class="flex items-center">
+                <span class="mr-3 text-gray-700">源类型</span>
+                <label class="mr-4 inline-flex items-center">
+                  <input type="radio" name="escape-source" id="escape-source-text" value="text" class="mr-2" checked>
+                  <span>字符串 → 转义</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input type="radio" name="escape-source" id="escape-source-bytes" value="bytes" class="mr-2">
+                  <span>字节字面量/转义 → 字符串</span>
+                </label>
+              </div>
 
-        // Encoding helpers
-        function encodeUtf8(str) {
-            return new Uint8Array(new TextEncoder().encode(str));
-        }
-        function decodeUtf8(bytes) {
-            try {
-                return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-            } catch (e) {
-                throw new Error('UTF-8 解码失败：字节序列无效');
-            }
-        }
-        function encodeLatin1(str) {
-            const arr = new Uint8Array(str.length);
-            for (let i = 0; i < str.length; i++) {
-                const code = str.charCodeAt(i);
-                if (code > 0xFF) {
-                    throw new Error('Latin-1 编码失败：存在超出 0xFF 的字符');
-                }
-                arr[i] = code & 0xFF;
-            }
-            return arr;
-        }
-        function decodeLatin1(bytes) {
-            let out = '';
-            for (let i = 0; i < bytes.length; i++) {
-                out += String.fromCharCode(bytes[i]);
-            }
-            return out;
-        }
+              <div class="flex items-center">
+                <span class="mr-3 text-gray-700">编码</span>
+                <select id="escape-encoding" class="p-2 border border-gray-300 rounded-md">
+                  <option value="utf8" selected>UTF-8</option>
+                  <option value="latin1">Latin-1</option>
+                </select>
+              </div>
+            </div>
 
-        // Bytes to \xNN escapes
-        function bytesToHexEscapes(bytes, hexCase = 'lower') {
-            const hex = [];
-            const toHex = (n) => n.toString(16).padStart(2, '0');
-            for (let i = 0; i < bytes.length; i++) {
-                const h = toHex(bytes[i]);
-                hex.push('\\x' + (hexCase === 'upper' ? h.toUpperCase() : h));
-            }
-            return hex.join('');
-        }
+            <div class="flex flex-wrap items-center gap-6">
+              <div class="flex items-center" id="escape-outmode-group">
+                <span class="mr-3 text-gray-700">输出模式</span>
+                <label class="mr-4 inline-flex items-center">
+                  <input type="radio" name="escape-outmode" id="escape-out-python" value="python" class="mr-2">
+                  <span>Python 字节字面量 b'\x..'</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input type="radio" name="escape-outmode" id="escape-out-plain" value="plain" class="mr-2" checked>
+                  <span>连续转义 \x..</span>
+                </label>
+              </div>
 
-        function wrapAsPythonBytesLiteral(escapes) {
-            return "b'" + escapes.replace(/'/g, "\\'") + "'";
-        }
+              <div class="flex items-center" id="escape-hexcase-group">
+                <span class="mr-3 text-gray-700">十六进制</span>
+                <select id="escape-hexcase" class="p-2 border border-gray-300 rounded-md">
+                  <option value="lower" selected>小写</option>
+                  <option value="upper">大写</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-        // Parse b'..' or plain \x.. into bytes; supports common escapes
-        function parseByteLiteralOrHexEscapes(input) {
-            let s = (input || '').trim();
+          <div class="flex flex-wrap items-center justify-center gap-4 w-full">
+            <button id="escape-convert-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始转换</button>
+            <div class="tooltip flex-1">
+              <span class="tooltiptext" id="escape-copy-tooltip">复制到剪贴板</span>
+              <button id="escape-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button>
+            </div>
+            <button id="escape-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
+          </div>
+        </div>
 
-            // Optional Python bytes literal wrapper b'...'/b"..."
-            if ((s.startsWith('b\'') || s.startsWith('B\'')) && s.endsWith('\'')) {
-                s = s.slice(2, -1);
-            } else if ((s.startsWith('b"') || s.startsWith('B"')) && s.endsWith('"')) {
-                s = s.slice(2, -1);
-            } else {
-                if ((s.startsWith('\'') && s.endsWith('\'')) || (s.startsWith('"') && s.endsWith('"'))) {
-                    s = s.slice(1, -1);
-                }
-            }
+        <!-- Simplified/Traditional Converter -->
+        <div id="content-converter" class="hidden">
+          <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">简繁体转换</h1>
+            <p class="text-gray-500 mt-2">在简体中文和繁体中文之间进行转换。</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label for="converter-input" class="block text-sm font-medium text-gray-700 mb-2">输入文本</label>
+              <textarea id="converter-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入简体或繁体文本..."></textarea>
+            </div>
+            <div>
+              <label for="converter-output" class="block text-sm font-medium text-gray-700 mb-2">输出结果</label>
+              <textarea id="converter-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
+            </div>
+          </div>
+          <div class="flex flex-col items-center gap-4">
+            <div class="flex items-center gap-x-6 gap-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
+              <div class="flex items-center">
+                <input id="converter-convert-quotes" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label for="converter-convert-quotes" class="ml-2 block text-sm text-gray-900">同时转换日式引号『』为中式引号【】</label>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
+              <button id="converter-t2s-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">繁体 → 简体</button>
+              <button id="converter-s2t-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">简体 → 繁体</button>
+              <div class="tooltip flex-1">
+                <span class="tooltiptext" id="converter-copy-tooltip">复制到剪贴板</span>
+                <button id="converter-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div> <!-- /Tab Content -->
+    </div>
+  </div>
 
-            const out = [];
-            for (let i = 0; i < s.length; i++) {
-                const ch = s[i];
-                if (ch !== '\\') {
-                    const code = s.charCodeAt(i);
-                    if (code <= 0x7F) {
-                        out.push(code);
-                    } else {
-                        // 容错：非 ASCII 直接截断到 0xFF
-                        out.push(code & 0xFF);
-                    }
-                    continue;
-                }
-                i++;
-                if (i >= s.length) throw new Error('转义序列不完整：末尾出现单独的反斜杠');
-                const e = s[i];
-                switch (e) {
-                    case 'n': out.push(0x0A); break;
-                    case 'r': out.push(0x0D); break;
-                    case 't': out.push(0x09); break;
-                    case '\\': out.push(0x5C); break;
-                    case '\'': out.push(0x27); break;
-                    case '"': out.push(0x22); break;
-                    case '0': out.push(0x00); break;
-                    case 'x': {
-                        if (i + 2 >= s.length) throw new Error('十六进制转义不完整：\\x 后需两位十六进制');
-                        const h1 = s[i + 1], h2 = s[i + 2];
-                        const hex = (h1 + h2);
-                        if (!/^[0-9a-fA-F]{2}$/.test(hex)) {
-                            throw new Error('无效的十六进制转义：\\x' + hex);
-                        }
-                        out.push(parseInt(hex, 16));
-                        i += 2;
-                        break;
-                    }
-                    default:
-                        // 未知转义，按字面字符处理
-                        out.push(e.charCodeAt(0));
-                        break;
-                }
-            }
-            return new Uint8Array(out);
-        }
-
-        // --- Initialize Tools ---
-
-        // Setup Subtitle Tool
-        subtitleTool.pasteProcessBtn.addEventListener('click', () => {
-            const text = subtitleTool.pasteInput.value;
-            const format = detectSubtitleFormat(text);
-            subtitleTool.pasteOutput.value = processSubtitle(text, format);
-        });
-        subtitleTool.pasteCopyBtn.addEventListener('click', () => copyToClipboard(subtitleTool.pasteOutput.value, subtitleTool.pasteTooltip));
-        
-        async function handleFiles(fileList) {
-            if (!fileList.length) return;
-            batchFiles = [];
-            subtitleTool.resultsContainer.innerHTML = '';
-            subtitleTool.resultsStatus.textContent = `正在处理 ${fileList.length} 个文件...`;
-            subtitleTool.downloadZipBtn.disabled = true;
-
-            const promises = Array.from(fileList).map(file => {
-                return new Promise((resolve) => {
-                    const extension = file.name.split('.').pop().toLowerCase();
-                    if (!['srt', 'lrc', 'ass', 'ssa', 'vtt'].includes(extension)) {
-                        resolve({ originalName: file.name, error: '不支持的文件类型' });
-                        return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const content = e.target.result;
-                        const format = extension === 'vtt' ? 'vtt' : (extension.startsWith('ss') ? 'ass' : extension);
-                        const processedContent = processSubtitle(content, format);
-                        resolve({
-                            originalName: file.name,
-                            newName: file.name.replace(/\.[^/.]+$/, "") + '_cleaned.txt',
-                            content: processedContent
-                        });
-                    };
-                    reader.onerror = () => resolve({ originalName: file.name, error: '文件读取失败' });
-                    reader.readAsText(file, 'UTF-8');
-                });
-            });
-
-            const results = await Promise.all(promises);
-            batchFiles = results.filter(r => !r.error);
-            
-            subtitleTool.resultsStatus.textContent = `已处理 ${results.length} / ${fileList.length} 个文件。`;
-            subtitleTool.resultsContainer.innerHTML = '';
-            results.forEach(result => {
-                const resultEl = document.createElement('div');
-                resultEl.className = 'flex justify-between items-center p-2 rounded text-sm';
-
-                const fileNameEl = document.createElement('span');
-                fileNameEl.className = 'truncate pr-4';
-                fileNameEl.textContent = result.originalName;
-                resultEl.appendChild(fileNameEl);
-
-                const statusContainer = document.createElement('div');
-                statusContainer.className = 'flex items-center gap-2 flex-shrink-0';
-
-                if (result.error) {
-                    resultEl.classList.add('bg-red-100', 'text-red-700');
-                    const errorEl = document.createElement('span');
-                    errorEl.className = 'font-medium';
-                    errorEl.textContent = result.error;
-                    statusContainer.appendChild(errorEl);
-                } else {
-                    resultEl.classList.add('bg-green-100', 'text-green-700');
-                    const successEl = document.createElement('span');
-                    successEl.className = 'font-medium';
-                    successEl.textContent = '成功';
-                    statusContainer.appendChild(successEl);
-
-                    const downloadBtn = document.createElement('button');
-                    downloadBtn.className = 'p-1 rounded-full hover:bg-green-200 transition-colors';
-                    downloadBtn.title = `下载 ${result.newName}`;
-                    downloadBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`;
-                    downloadBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.download = result.newName;
-                        a.href = url;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    };
-                    statusContainer.appendChild(downloadBtn);
-                }
-
-                resultEl.appendChild(statusContainer);
-                subtitleTool.resultsContainer.appendChild(resultEl);
-            });
-            
-            if (batchFiles.length > 0) {
-                subtitleTool.downloadZipBtn.disabled = false;
-            }
-        }
-
-        subtitleTool.filesInput.addEventListener('change', (e) => handleFiles(e.target.files));
-        subtitleTool.folderInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-        subtitleTool.downloadZipBtn.addEventListener('click', () => {
-            if (batchFiles.length === 0) return;
-            const zip = new JSZip();
-            batchFiles.forEach(file => {
-                zip.file(file.newName, file.content);
-            });
-            zip.generateAsync({ type: 'blob' }).then(blob => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.download = 'subtitles_cleaned.zip';
-                a.href = url;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            });
-        });
-        
-        subtitleTool.clearBtn.addEventListener('click', () => {
-            batchFiles = [];
-            subtitleTool.resultsContainer.innerHTML = '<p class="text-gray-400 text-center pt-8">请上传文件或文件夹...</p>';
-            subtitleTool.resultsStatus.textContent = '处理结果';
-            subtitleTool.downloadZipBtn.disabled = true;
-            subtitleTool.filesInput.value = '';
-            subtitleTool.folderInput.value = '';
-        });
-
-        // Setup Cleanup Tool
-        cleanupTool.processBtn.addEventListener('click', () => {
-            cleanupTool.output.value = processCleanup(cleanupTool.input.value, cleanupTool.removeMarkdown.checked, cleanupTool.removeEmptyLines.checked);
-        });
-        cleanupTool.copyBtn.addEventListener('click', () => copyToClipboard(cleanupTool.output.value, cleanupTool.tooltip));
-        cleanupTool.downloadBtn.addEventListener('click', () => {
-            if (!cleanupTool.output.value) return;
-            const blob = new Blob([cleanupTool.output.value], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.download = `cleaned_text.txt`;
-            a.href = url;
-            a.click();
-            URL.revokeObjectURL(url);
-        });
-
-        // Setup Joiner Tool
-        joinerTool.processBtn.addEventListener('click', () => {
-            joinerResult = processJoiner(joinerTool.input.value, joinerTool.separator.value);
-            const displayResult = joinerResult.replace(/\n/g, '\\n').replace(/\t/g, '\\t');
-            joinerTool.output.textContent = displayResult;
-        });
-        joinerTool.copyBtn.addEventListener('click', () => copyToClipboard(joinerResult, joinerTool.tooltip));
-        joinerTool.downloadBtn.addEventListener('click', () => {
-            if (!joinerResult) return;
-            const blob = new Blob([joinerResult], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.download = `joined_text.txt`;
-            a.href = url;
-            a.click();
-            URL.revokeObjectURL(url);
-        });
-        
-        // Setup Injector Tool
-        const runInjector = () => {
-            const injectionString = injectorTool.stringInput.value || '\u200b'; // Default to ZWS
-            injectorTool.output.value = processInjector(injectorTool.input.value, injectionString);
-        };
-        injectorTool.input.addEventListener('input', runInjector);
-        injectorTool.stringInput.addEventListener('input', runInjector);
-        injectorTool.zwsBtn.addEventListener('click', () => {
-            injectorTool.stringInput.value = '\u200b';
-            runInjector();
-        });
-        injectorTool.copyBtn.addEventListener('click', () => copyToClipboard(injectorTool.output.value, injectorTool.tooltip));
-        injectorTool.downloadBtn.addEventListener('click', () => {
-            if (!injectorTool.output.value) return;
-            const blob = new Blob([injectorTool.output.value], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.download = `injected_text.txt`;
-            a.href = url;
-            a.click();
-            URL.revokeObjectURL(url);
-        });
-
-        // Setup Counter Tool
-        counterTool.input.addEventListener('input', () => {
-            const stats = analyzeText(counterTool.input.value);
-            counterTool.hanziCount.textContent = stats.hanzi;
-            counterTool.wordCount.textContent = stats.words;
-            counterTool.puncCount.textContent = stats.punctuation;
-            counterTool.charCount.textContent = stats.totalChars;
-        });
-
-        // Setup Timestamp Tool
-        function updateCurrentTimestamp() {
-            timestampTool.currentDisplay.textContent = Math.floor(Date.now() / 1000);
-        }
-        setInterval(updateCurrentTimestamp, 1000);
-
-        function updateTimestampFromDate() {
-            if (isUpdatingTimestamp) return;
-            isUpdatingTimestamp = true;
-            const year = parseInt(timestampTool.year.value);
-            const month = parseInt(timestampTool.month.value);
-            const day = parseInt(timestampTool.day.value);
-            const hour = parseInt(timestampTool.hour.value) || 0;
-            const minute = parseInt(timestampTool.minute.value) || 0;
-            const second = parseInt(timestampTool.second.value) || 0;
-            if (year && month && day) {
-                const date = new Date(year, month - 1, day, hour, minute, second);
-                timestampTool.outputFromDate.value = Math.floor(date.getTime() / 1000);
-            } else {
-                timestampTool.outputFromDate.value = '';
-            }
-            isUpdatingTimestamp = false;
-        }
-
-        function updateDateFromTimestamp() {
-            if (isUpdatingTimestamp) return;
-            isUpdatingTimestamp = true;
-            const ts = parseInt(timestampTool.inputFromTs.value);
-            if (ts && ts > 0) {
-                const date = new Date(ts * 1000);
-                timestampTool.year.value = date.getFullYear();
-                timestampTool.month.value = date.getMonth() + 1;
-                timestampTool.day.value = date.getDate();
-                timestampTool.hour.value = date.getHours();
-                timestampTool.minute.value = date.getMinutes();
-                timestampTool.second.value = date.getSeconds();
-                const pad = (n) => n.toString().padStart(2, '0');
-                timestampTool.outputFromTs.value = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-            } else {
-                timestampTool.outputFromTs.value = '';
-                ['year', 'month', 'day', 'hour', 'minute', 'second'].forEach(key => timestampTool[key].value = '');
-            }
-            isUpdatingTimestamp = false;
-        }
-
-        timestampTool.dateInputs.forEach(input => input.addEventListener('input', updateTimestampFromDate));
-        timestampTool.inputFromTs.addEventListener('input', updateDateFromTimestamp);
-        timestampTool.outputFromDate.addEventListener('click', (e) => copyToClipboard(e.target.value, timestampTool.tooltipFromDate));
-        timestampTool.outputFromTs.addEventListener('click', (e) => copyToClipboard(e.target.value, timestampTool.tooltipFromTs));
-        
-        // Setup Duration Tool
-        function updateSecondsFromDuration() {
-            if (isUpdatingDuration) return;
-            isUpdatingDuration = true;
-            const days = parseInt(durationTool.days.value) || 0;
-            const hours = parseInt(durationTool.hours.value) || 0;
-            const minutes = parseInt(durationTool.minutes.value) || 0;
-            const seconds = parseInt(durationTool.seconds.value) || 0;
-            const totalSeconds = (days * 86400) + (hours * 3600) + (minutes * 60) + seconds;
-            durationTool.outputTotalSeconds.value = totalSeconds;
-            durationTool.inputTotalSeconds.value = totalSeconds;
-            isUpdatingDuration = false;
-        }
-
-        function updateDurationFromSeconds() {
-            if (isUpdatingDuration) return;
-            isUpdatingDuration = true;
-            let totalSeconds = parseInt(durationTool.inputTotalSeconds.value) || 0;
-            if (totalSeconds >= 0) {
-                const days = Math.floor(totalSeconds / 86400);
-                let remainder = totalSeconds % 86400;
-                const hours = Math.floor(remainder / 3600);
-                remainder %= 3600;
-                const minutes = Math.floor(remainder / 60);
-                const seconds = remainder % 60;
-                durationTool.days.value = days;
-                durationTool.hours.value = hours;
-                durationTool.minutes.value = minutes;
-                durationTool.seconds.value = seconds;
-                durationTool.outputDays.value = days;
-                durationTool.outputHours.value = hours;
-                durationTool.outputMinutes.value = minutes;
-                durationTool.outputSeconds.value = seconds;
-            } else {
-                ['days', 'hours', 'minutes', 'seconds'].forEach(key => durationTool[key].value = '');
-                ['outputDays', 'outputHours', 'outputMinutes', 'outputSeconds'].forEach(key => durationTool[key].value = '');
-            }
-            isUpdatingDuration = false;
-        }
-
-        durationTool.durationInputs.forEach(input => input.addEventListener('input', () => {
-            updateSecondsFromDuration();
-            updateDurationFromSeconds(); // Also update the other side's read-only fields
-        }));
-        durationTool.inputTotalSeconds.addEventListener('input', () => {
-            updateDurationFromSeconds();
-            updateSecondsFromDuration(); // Also update the other side's read-only field
-        });
-        
-        durationTool.quickBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const days = btn.dataset.days || 0;
-                const hours = btn.dataset.hours || 0;
-                durationTool.days.value = days;
-                durationTool.hours.value = hours;
-                durationTool.minutes.value = 0;
-                durationTool.seconds.value = 0;
-                // Trigger updates
-                updateSecondsFromDuration();
-                updateDurationFromSeconds();
-            });
-        });
-        durationTool.outputTotalSeconds.addEventListener('click', (e) => copyToClipboard(e.target.value, durationTool.tooltipFromDuration));
-
-
-        // Setup Base64 Tool
-        base64Tool.encodeBtn.addEventListener('click', () => {
-            base64Tool.output.value = base64Encode(base64Tool.input.value);
-        });
-        base64Tool.decodeBtn.addEventListener('click', () => {
-            base64Tool.output.value = base64Decode(base64Tool.input.value);
-        });
-        base64Tool.copyBtn.addEventListener('click', () => copyToClipboard(base64Tool.output.value, base64Tool.tooltip));
-
-        // Setup Escape Tool
-        function setEscapeError(msg) {
-            if (!msg) {
-                escapeTool.error.classList.add('hidden');
-                escapeTool.error.textContent = '';
-            } else {
-                escapeTool.error.classList.remove('hidden');
-                escapeTool.error.textContent = msg;
-            }
-        }
-        function getSelectedEncoding() {
-            return (escapeTool.encoding && escapeTool.encoding.value) || 'utf8';
-        }
-        function convertEscape() {
-            setEscapeError('');
-            const sourceIsText = escapeTool.sourceText && escapeTool.sourceText.checked;
-            const enc = getSelectedEncoding();
-            const hexCase = escapeTool.hexCase ? escapeTool.hexCase.value : 'lower';
-            try {
-                if (sourceIsText) {
-                    // Text -> escapes
-                    const input = escapeTool.input.value || '';
-                    let bytes;
-                    if (enc === 'utf8') {
-                        bytes = encodeUtf8(input);
-                    } else {
-                        bytes = encodeLatin1(input);
-                    }
-                    const escapes = bytesToHexEscapes(bytes, hexCase);
-                    const out = (escapeTool.outPython && escapeTool.outPython.checked) ? wrapAsPythonBytesLiteral(escapes) : escapes;
-                    escapeTool.output.value = out;
-                } else {
-                    // Escapes -> text
-                    const input = escapeTool.input.value || '';
-                    const bytes = parseByteLiteralOrHexEscapes(input);
-                    let text;
-                    if (enc === 'utf8') {
-                        text = decodeUtf8(bytes);
-                    } else {
-                        text = decodeLatin1(bytes);
-                    }
-                    escapeTool.output.value = text;
-                }
-            } catch (e) {
-                setEscapeError(e.message || String(e));
-                escapeTool.output.value = '';
-            }
-        }
-        if (escapeTool.convertBtn) escapeTool.convertBtn.addEventListener('click', convertEscape);
-        if (escapeTool.copyBtn) escapeTool.copyBtn.addEventListener('click', () => copyToClipboard(escapeTool.output.value, escapeTool.tooltip));
-        if (escapeTool.downloadBtn) escapeTool.downloadBtn.addEventListener('click', () => {
-            if (!escapeTool.output.value) return;
-            const blob = new Blob([escapeTool.output.value], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.download = 'escaped_text.txt';
-            a.href = url;
-            a.click();
-            URL.revokeObjectURL(url);
-        });
-        function refreshEscapeUiState() {
-            const sourceIsText = escapeTool.sourceText && escapeTool.sourceText.checked;
-            [escapeTool.outmodeGroup, escapeTool.hexcaseGroup].forEach(el => {
-                if (!el) return;
-                if (sourceIsText) {
-                    el.classList.remove('opacity-50');
-                } else {
-                    el.classList.add('opacity-50');
-                }
-            });
-        }
-        // --- Escape Tool auto-detect source mode ---
-        function detectSourceMode(text) {
-            if (!text) return 'text';
-            const s = String(text).trim();
-            const isBytesLiteral =
-                ((s.startsWith("b'") || s.startsWith("B'")) && s.endsWith("'")) ||
-                ((s.startsWith('b"') || s.startsWith('B"')) && s.endsWith('"'));
-            const hasHexEsc = /\\x[0-9a-fA-F]{2}/.test(s);
-            const compact = s.replace(/\s+/g, '');
-            const mostlyHex = /^\\x[0-9a-fA-F]{2}(\\x[0-9a-fA-F]{2})+$/i.test(compact);
-            return (isBytesLiteral || hasHexEsc || mostlyHex) ? 'bytes' : 'text';
-        }
-        function autoDetectEscapeSource() {
-            try {
-                const val = (escapeTool.input && escapeTool.input.value) || '';
-                const mode = detectSourceMode(val);
-                if (escapeTool.sourceText && escapeTool.sourceBytes) {
-                    if (mode === 'bytes') {
-                        escapeTool.sourceBytes.checked = true;
-                        escapeTool.sourceText.checked = false;
-                    } else {
-                        escapeTool.sourceText.checked = true;
-                        escapeTool.sourceBytes.checked = false;
-                    }
-                }
-                setEscapeError('');
-                refreshEscapeUiState();
-            } catch (_) {
-                // ignore
-            }
-        }
-        if (escapeTool.input) {
-            escapeTool.input.addEventListener('input', autoDetectEscapeSource);
-        }
-        // --- Escape Tool auto-detect source mode ---
-        function detectSourceMode(text) {
-            if (!text) return 'text';
-            const s = String(text).trim();
-            const isBytesLiteral =
-                ((s.startsWith("b'") || s.startsWith("B'")) && s.endsWith("'")) ||
-                ((s.startsWith('b"') || s.startsWith('B"')) && s.endsWith('"'));
-            const hasHexEsc = /\\x[0-9a-fA-F]{2}/.test(s);
-            const compact = s.replace(/\s+/g, '');
-            const mostlyHex = /^\\x[0-9a-fA-F]{2}(\\x[0-9a-fA-F]{2})+$/i.test(compact);
-            return (isBytesLiteral || hasHexEsc || mostlyHex) ? 'bytes' : 'text';
-        }
-        function autoDetectEscapeSource() {
-            try {
-                const val = (escapeTool.input && escapeTool.input.value) || '';
-                const mode = detectSourceMode(val);
-                if (escapeTool.sourceText && escapeTool.sourceBytes) {
-                    if (mode === 'bytes') {
-                        escapeTool.sourceBytes.checked = true;
-                        escapeTool.sourceText.checked = false;
-                    } else {
-                        escapeTool.sourceText.checked = true;
-                        escapeTool.sourceBytes.checked = false;
-                    }
-                }
-                setEscapeError('');
-                refreshEscapeUiState();
-            } catch (_) {
-                // ignore
-            }
-        }
-        if (escapeTool.input) {
-            escapeTool.input.addEventListener('input', autoDetectEscapeSource);
-        }
-        if (escapeTool.sourceText && escapeTool.sourceBytes) {
-            escapeTool.sourceText.addEventListener('change', refreshEscapeUiState);
-            escapeTool.sourceBytes.addEventListener('change', refreshEscapeUiState);
-            refreshEscapeUiState();
-        }
-        // 初始化时自适应一次
-        autoDetectEscapeSource();
-
-        // Setup Simplified/Traditional Converter using OpenCC
-        // Lazy initialize converters to support file:// with CDN-loaded script
-        let t2sConverter = null; // 繁 -> 简
-        let s2tConverter = null; // 简 -> 繁
-
-        // OpenCC readiness helpers
-        let convertersReady = false;
-
-        function getOpenCC() {
-            try {
-                const g = window || {};
-                if (g.OpenCC && typeof g.OpenCC.Converter === 'function') return g.OpenCC;
-                if (g.opencc && typeof g.opencc.Converter === 'function') return g.opencc;
-                if (g.OpenCCJS && typeof g.OpenCCJS.Converter === 'function') return g.OpenCCJS;
-                if (g.OpenCC && g.OpenCC.default && typeof g.OpenCC.default.Converter === 'function') return g.OpenCC.default;
-                return null;
-            } catch (e) {
-                return null;
-            }
-        }
-
-        function ensureConverters() {
-            try {
-                const OC = getOpenCC();
-                if (!OC) return false;
-                if (!t2sConverter) t2sConverter = OC.Converter({ from: 'tw', to: 'cn' });
-                if (!s2tConverter) s2tConverter = OC.Converter({ from: 'cn', to: 'tw' });
-                convertersReady = true;
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        // Poll OpenCC readiness and enable buttons once ready
-        (function waitOpenCCReady() {
-            if (ensureConverters()) {
-                setConverterButtonsEnabled(true);
-            } else {
-                setTimeout(waitOpenCCReady, 300);
-            }
-        })();
-
-        // Fail-open: 若一段时间后仍未就绪，也先启用按钮，点击时再按需检查
-        setTimeout(() => {
-            if (!convertersReady) {
-                setConverterButtonsEnabled(true);
-            }
-        }, 4000);
-
-        function convertQuotes(text) {
-            return text.replace(/『/g, '【').replace(/』/g, '】');
-        }
-        
-        converterTool.t2sBtn.addEventListener('click', () => {
-            const text = converterTool.input.value || '';
-            if (!ensureConverters()) {
-                alert('简繁词库未就绪，请检查网络或稍后重试');
-                return;
-            }
-            let result = t2sConverter(text);
-            if (converterTool.quotesCheckbox.checked) {
-                result = convertQuotes(result);
-            }
-            converterTool.output.value = result;
-        });
-
-        converterTool.s2tBtn.addEventListener('click', () => {
-            const text = converterTool.input.value || '';
-            if (!ensureConverters()) {
-                alert('简繁词库未就绪，请检查网络或稍后重试');
-                return;
-            }
-            let result = s2tConverter(text);
-            if (converterTool.quotesCheckbox.checked) {
-                result = convertQuotes(result);
-            }
-            converterTool.output.value = result;
-        });
-
-        converterTool.copyBtn.addEventListener('click', () => copyToClipboard(converterTool.output.value, converterTool.tooltip));
-
-        // Initial page load setup
-        function init() {
-            try {
-                switchTab('subtitle');
-                } catch (e) {
-                }
-
-            try {
-                const initialStats = analyzeText('');
-                counterTool.hanziCount.textContent = initialStats.hanzi;
-                counterTool.wordCount.textContent = initialStats.words;
-                counterTool.puncCount.textContent = initialStats.punctuation;
-                counterTool.charCount.textContent = initialStats.totalChars;
-                } catch (e) {
-                }
-
-            try {
-                updateCurrentTimestamp();
-                const now = new Date();
-                timestampTool.year.value = now.getFullYear();
-                timestampTool.month.value = now.getMonth() + 1;
-                timestampTool.day.value = now.getDate();
-                timestampTool.hour.value = now.getHours();
-                timestampTool.minute.value = now.getMinutes();
-                timestampTool.second.value = now.getSeconds();
-                updateTimestampFromDate();
-                } catch (e) {
-                }
-            
-            try {
-                // Init duration tool
-                updateSecondsFromDuration();
-                updateDurationFromSeconds();
-                } catch (e) {
-                }
-            
-            try {
-                // Set initial text for converter
-                converterTool.input.value = `在『政治的正確性』與『價值相對化』等好聽的名號下，各式各樣的『真相』就被囤積下來。于是人們“在舒適的生活中嬌生慣養，耳朵只聽自己喜歡的『真相』。各種『真相』之間既不互相衝突，也不互相矛盾，也沒辦法去否定批駁，因此就沒有人是完全正確的。所謂的“反仇恨”，其本質便是為了“避免鬥爭，在不受傷的情況下，互相掩護的鬧劇”。`;
-                } catch (e) {
-                }
-
-            }
-        
-        init();
-    </script>
+  <!-- 入口模块：使用 ES Modules；本地 file:// 使用相对路径，线上 GitHub Pages 使用动态 basePath -->
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>
-
