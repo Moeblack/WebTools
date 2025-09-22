@@ -122,6 +122,7 @@
                     <button id="tab-timestamp" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">时间戳转换</button>
                     <button id="tab-duration" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">时间段转换</button>
                     <button id="tab-base64" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">Base64 编码</button>
+                    <button id="tab-escape" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">文本转义</button>
                     <button id="tab-converter" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200">简繁转换</button>
                 </nav>
             </div>
@@ -387,6 +388,82 @@
                     </div>
                 </div>
 
+                
+                <!-- Escape Tool -->
+                <div id="content-escape" class="hidden">
+                    <div class="text-center mb-8">
+                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本转义（字节字面量）</h1>
+                        <p class="text-gray-500 mt-2">字符串 ⇄ 十六进制转义序列，支持 Python 字节字面量 b'\x..' 与连续转义 \x..</p>
+                    </div>
+
+                    <div id="escape-error" class="hidden mb-4 p-3 rounded-lg bg-red-100 text-red-700 text-sm"></div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label for="escape-input" class="block text-sm font-medium text-gray-700 mb-2">输入</label>
+                            <textarea id="escape-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此粘贴字符串或字节字面量...&#10;示例: 我爱你&#10;示例: b'\xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0'&#10;示例: \xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0"></textarea>
+                        </div>
+                        <div>
+                            <label for="escape-output" class="block text-sm font-medium text-gray-700 mb-2">输出</label>
+                            <textarea id="escape-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 p-4 bg-gray-50 rounded-lg mb-6">
+                        <div class="flex flex-wrap items-center gap-6">
+                            <div class="flex items-center">
+                                <span class="mr-3 text-gray-700">源类型</span>
+                                <label class="mr-4 inline-flex items-center">
+                                    <input type="radio" name="escape-source" id="escape-source-text" value="text" class="mr-2" checked>
+                                    <span>字符串 → 转义</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="escape-source" id="escape-source-bytes" value="bytes" class="mr-2">
+                                    <span>字节字面量/转义 → 字符串</span>
+                                </label>
+                            </div>
+
+                            <div class="flex items-center">
+                                <span class="mr-3 text-gray-700">编码</span>
+                                <select id="escape-encoding" class="p-2 border border-gray-300 rounded-md">
+                                    <option value="utf8" selected>UTF-8</option>
+                                    <option value="latin1">Latin-1</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-6">
+                            <div class="flex items-center" id="escape-outmode-group">
+                                <span class="mr-3 text-gray-700">输出模式</span>
+                                <label class="mr-4 inline-flex items-center">
+                                    <input type="radio" name="escape-outmode" id="escape-out-python" value="python" class="mr-2">
+                                    <span>Python 字节字面量 b'\x..'</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="escape-outmode" id="escape-out-plain" value="plain" class="mr-2" checked>
+                                    <span>连续转义 \x..</span>
+                                </label>
+                            </div>
+
+                            <div class="flex items-center" id="escape-hexcase-group">
+                                <span class="mr-3 text-gray-700">十六进制</span>
+                                <select id="escape-hexcase" class="p-2 border border-gray-300 rounded-md">
+                                    <option value="lower" selected>小写</option>
+                                    <option value="upper">大写</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-center gap-4 w-full">
+                        <button id="escape-convert-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始转换</button>
+                        <div class="tooltip flex-1">
+                            <span class="tooltiptext" id="escape-copy-tooltip">复制到剪贴板</span>
+                            <button id="escape-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">复制结果</button>
+                        </div>
+                        <button id="escape-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
+                    </div>
+                </div>
                 <!-- Simplified/Traditional Converter -->
                 <div id="content-converter" class="hidden">
                     <div class="text-center mb-8">
@@ -419,17 +496,16 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-
+    
+                    </div>
             </div>
         </div>
     </div>
 
     <script>
         // --- Element Selectors ---
-        const tabs = { subtitle: document.getElementById('tab-subtitle'), cleanup: document.getElementById('tab-cleanup'), joiner: document.getElementById('tab-joiner'), injector: document.getElementById('tab-injector'), counter: document.getElementById('tab-counter'), timestamp: document.getElementById('tab-timestamp'), duration: document.getElementById('tab-duration'), base64: document.getElementById('tab-base64'), converter: document.getElementById('tab-converter') };
-        const contents = { subtitle: document.getElementById('content-subtitle'), cleanup: document.getElementById('content-cleanup'), joiner: document.getElementById('content-joiner'), injector: document.getElementById('content-injector'), counter: document.getElementById('content-counter'), timestamp: document.getElementById('content-timestamp'), duration: document.getElementById('content-duration'), base64: document.getElementById('content-base64'), converter: document.getElementById('content-converter') };
+        const tabs = { subtitle: document.getElementById('tab-subtitle'), cleanup: document.getElementById('tab-cleanup'), joiner: document.getElementById('tab-joiner'), injector: document.getElementById('tab-injector'), counter: document.getElementById('tab-counter'), timestamp: document.getElementById('tab-timestamp'), duration: document.getElementById('tab-duration'), base64: document.getElementById('tab-base64'), escape: document.getElementById('tab-escape'), converter: document.getElementById('tab-converter') };
+        const contents = { subtitle: document.getElementById('content-subtitle'), cleanup: document.getElementById('content-cleanup'), joiner: document.getElementById('content-joiner'), injector: document.getElementById('content-injector'), counter: document.getElementById('content-counter'), timestamp: document.getElementById('content-timestamp'), duration: document.getElementById('content-duration'), base64: document.getElementById('content-base64'), escape: document.getElementById('content-escape'), converter: document.getElementById('content-converter') };
         
         // --- Tool-specific Elements ---
         const subtitleTool = { pasteInput: document.getElementById('subtitle-paste-input'), pasteOutput: document.getElementById('subtitle-paste-output'), pasteProcessBtn: document.getElementById('subtitle-paste-process-btn'), pasteCopyBtn: document.getElementById('subtitle-paste-copy-btn'), pasteTooltip: document.getElementById('subtitle-paste-tooltip'), filesInput: document.getElementById('subtitle-files-input'), folderInput: document.getElementById('subtitle-folder-input'), resultsContainer: document.getElementById('subtitle-results-container'), resultsStatus: document.getElementById('subtitle-results-status'), downloadZipBtn: document.getElementById('subtitle-download-zip-btn'), clearBtn: document.getElementById('subtitle-clear-btn') };
@@ -469,6 +545,23 @@
             quotesCheckbox: document.getElementById('converter-convert-quotes'),
             tooltip: document.getElementById('converter-copy-tooltip'),
         };
+        const escapeTool = {
+            input: document.getElementById('escape-input'),
+            output: document.getElementById('escape-output'),
+            error: document.getElementById('escape-error'),
+            copyBtn: document.getElementById('escape-copy-btn'),
+            downloadBtn: document.getElementById('escape-download-btn'),
+            tooltip: document.getElementById('escape-copy-tooltip'),
+            convertBtn: document.getElementById('escape-convert-btn'),
+            sourceText: document.getElementById('escape-source-text'),
+            sourceBytes: document.getElementById('escape-source-bytes'),
+            encoding: document.getElementById('escape-encoding'),
+            outPython: document.getElementById('escape-out-python'),
+            outPlain: document.getElementById('escape-out-plain'),
+            hexCase: document.getElementById('escape-hexcase'),
+            outmodeGroup: document.getElementById('escape-outmode-group'),
+            hexcaseGroup: document.getElementById('escape-hexcase-group'),
+        };
 
         // Disable converter buttons until OpenCC is ready
         function setConverterButtonsEnabled(enabled) {
@@ -489,13 +582,29 @@
 
         // --- Tab Switching Logic ---
         function switchTab(activeKey) {
-            Object.keys(tabs).forEach(key => {
-                const isActive = key === activeKey;
-                tabs[key].classList.toggle('tab-active', isActive);
-                tabs[key].classList.toggle('text-gray-500', !isActive);
-                tabs[key].classList.toggle('border-gray-200', !isActive);
-                contents[key].classList.toggle('hidden', !isActive);
-            });
+            try {
+                const tabKeys = Object.keys(tabs);
+                const contentKeys = Object.keys(contents);
+                // 基本一致性检查
+                if (tabKeys.length !== contentKeys.length) {
+                    }
+                tabKeys.forEach(key => {
+                    const tabEl = tabs[key];
+                    const contentEl = contents[key];
+                    if (!tabEl) {
+                        return;
+                    }
+                    if (!contentEl) {
+                        return;
+                    }
+                    const isActive = key === activeKey;
+                    tabEl.classList.toggle('tab-active', isActive);
+                    tabEl.classList.toggle('text-gray-500', !isActive);
+                    tabEl.classList.toggle('border-gray-200', !isActive);
+                    contentEl.classList.toggle('hidden', !isActive);
+                });
+                } catch (e) {
+                }
         }
         Object.keys(tabs).forEach(key => tabs[key].addEventListener('click', () => switchTab(key)));
 
@@ -634,6 +743,112 @@
             } catch (e) {
                 return '解码失败：无效的 Base64 字符串。';
             }
+        }
+
+        // --- Escape Tool Helpers ---
+
+        // Encoding helpers
+        function encodeUtf8(str) {
+            return new Uint8Array(new TextEncoder().encode(str));
+        }
+        function decodeUtf8(bytes) {
+            try {
+                return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            } catch (e) {
+                throw new Error('UTF-8 解码失败：字节序列无效');
+            }
+        }
+        function encodeLatin1(str) {
+            const arr = new Uint8Array(str.length);
+            for (let i = 0; i < str.length; i++) {
+                const code = str.charCodeAt(i);
+                if (code > 0xFF) {
+                    throw new Error('Latin-1 编码失败：存在超出 0xFF 的字符');
+                }
+                arr[i] = code & 0xFF;
+            }
+            return arr;
+        }
+        function decodeLatin1(bytes) {
+            let out = '';
+            for (let i = 0; i < bytes.length; i++) {
+                out += String.fromCharCode(bytes[i]);
+            }
+            return out;
+        }
+
+        // Bytes to \xNN escapes
+        function bytesToHexEscapes(bytes, hexCase = 'lower') {
+            const hex = [];
+            const toHex = (n) => n.toString(16).padStart(2, '0');
+            for (let i = 0; i < bytes.length; i++) {
+                const h = toHex(bytes[i]);
+                hex.push('\\x' + (hexCase === 'upper' ? h.toUpperCase() : h));
+            }
+            return hex.join('');
+        }
+
+        function wrapAsPythonBytesLiteral(escapes) {
+            return "b'" + escapes.replace(/'/g, "\\'") + "'";
+        }
+
+        // Parse b'..' or plain \x.. into bytes; supports common escapes
+        function parseByteLiteralOrHexEscapes(input) {
+            let s = (input || '').trim();
+
+            // Optional Python bytes literal wrapper b'...'/b"..."
+            if ((s.startsWith('b\'') || s.startsWith('B\'')) && s.endsWith('\'')) {
+                s = s.slice(2, -1);
+            } else if ((s.startsWith('b"') || s.startsWith('B"')) && s.endsWith('"')) {
+                s = s.slice(2, -1);
+            } else {
+                if ((s.startsWith('\'') && s.endsWith('\'')) || (s.startsWith('"') && s.endsWith('"'))) {
+                    s = s.slice(1, -1);
+                }
+            }
+
+            const out = [];
+            for (let i = 0; i < s.length; i++) {
+                const ch = s[i];
+                if (ch !== '\\') {
+                    const code = s.charCodeAt(i);
+                    if (code <= 0x7F) {
+                        out.push(code);
+                    } else {
+                        // 容错：非 ASCII 直接截断到 0xFF
+                        out.push(code & 0xFF);
+                    }
+                    continue;
+                }
+                i++;
+                if (i >= s.length) throw new Error('转义序列不完整：末尾出现单独的反斜杠');
+                const e = s[i];
+                switch (e) {
+                    case 'n': out.push(0x0A); break;
+                    case 'r': out.push(0x0D); break;
+                    case 't': out.push(0x09); break;
+                    case '\\': out.push(0x5C); break;
+                    case '\'': out.push(0x27); break;
+                    case '"': out.push(0x22); break;
+                    case '0': out.push(0x00); break;
+                    case 'x': {
+                        if (i + 2 >= s.length) throw new Error('十六进制转义不完整：\\x 后需两位十六进制');
+                        const h1 = s[i + 1], h2 = s[i + 2];
+                        const hex = (h1 + h2);
+                        if (!/^[0-9a-fA-F]{2}$/.test(hex)) {
+                            throw new Error('无效的十六进制转义：\\x' + hex);
+                        }
+                        out.push(parseInt(hex, 16));
+                        i += 2;
+                        break;
+                    }
+                    default:
+                        // 未知转义，按字面字符处理
+                        out.push(e.charCodeAt(0));
+                        break;
+                }
+            }
+            return new Uint8Array(out);
         }
 
         // --- Initialize Tools ---
@@ -954,6 +1169,153 @@
         });
         base64Tool.copyBtn.addEventListener('click', () => copyToClipboard(base64Tool.output.value, base64Tool.tooltip));
 
+        // Setup Escape Tool
+        function setEscapeError(msg) {
+            if (!msg) {
+                escapeTool.error.classList.add('hidden');
+                escapeTool.error.textContent = '';
+            } else {
+                escapeTool.error.classList.remove('hidden');
+                escapeTool.error.textContent = msg;
+            }
+        }
+        function getSelectedEncoding() {
+            return (escapeTool.encoding && escapeTool.encoding.value) || 'utf8';
+        }
+        function convertEscape() {
+            setEscapeError('');
+            const sourceIsText = escapeTool.sourceText && escapeTool.sourceText.checked;
+            const enc = getSelectedEncoding();
+            const hexCase = escapeTool.hexCase ? escapeTool.hexCase.value : 'lower';
+            try {
+                if (sourceIsText) {
+                    // Text -> escapes
+                    const input = escapeTool.input.value || '';
+                    let bytes;
+                    if (enc === 'utf8') {
+                        bytes = encodeUtf8(input);
+                    } else {
+                        bytes = encodeLatin1(input);
+                    }
+                    const escapes = bytesToHexEscapes(bytes, hexCase);
+                    const out = (escapeTool.outPython && escapeTool.outPython.checked) ? wrapAsPythonBytesLiteral(escapes) : escapes;
+                    escapeTool.output.value = out;
+                } else {
+                    // Escapes -> text
+                    const input = escapeTool.input.value || '';
+                    const bytes = parseByteLiteralOrHexEscapes(input);
+                    let text;
+                    if (enc === 'utf8') {
+                        text = decodeUtf8(bytes);
+                    } else {
+                        text = decodeLatin1(bytes);
+                    }
+                    escapeTool.output.value = text;
+                }
+            } catch (e) {
+                setEscapeError(e.message || String(e));
+                escapeTool.output.value = '';
+            }
+        }
+        if (escapeTool.convertBtn) escapeTool.convertBtn.addEventListener('click', convertEscape);
+        if (escapeTool.copyBtn) escapeTool.copyBtn.addEventListener('click', () => copyToClipboard(escapeTool.output.value, escapeTool.tooltip));
+        if (escapeTool.downloadBtn) escapeTool.downloadBtn.addEventListener('click', () => {
+            if (!escapeTool.output.value) return;
+            const blob = new Blob([escapeTool.output.value], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.download = 'escaped_text.txt';
+            a.href = url;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        function refreshEscapeUiState() {
+            const sourceIsText = escapeTool.sourceText && escapeTool.sourceText.checked;
+            [escapeTool.outmodeGroup, escapeTool.hexcaseGroup].forEach(el => {
+                if (!el) return;
+                if (sourceIsText) {
+                    el.classList.remove('opacity-50');
+                } else {
+                    el.classList.add('opacity-50');
+                }
+            });
+        }
+        // --- Escape Tool auto-detect source mode ---
+        function detectSourceMode(text) {
+            if (!text) return 'text';
+            const s = String(text).trim();
+            const isBytesLiteral =
+                ((s.startsWith("b'") || s.startsWith("B'")) && s.endsWith("'")) ||
+                ((s.startsWith('b"') || s.startsWith('B"')) && s.endsWith('"'));
+            const hasHexEsc = /\\x[0-9a-fA-F]{2}/.test(s);
+            const compact = s.replace(/\s+/g, '');
+            const mostlyHex = /^\\x[0-9a-fA-F]{2}(\\x[0-9a-fA-F]{2})+$/i.test(compact);
+            return (isBytesLiteral || hasHexEsc || mostlyHex) ? 'bytes' : 'text';
+        }
+        function autoDetectEscapeSource() {
+            try {
+                const val = (escapeTool.input && escapeTool.input.value) || '';
+                const mode = detectSourceMode(val);
+                if (escapeTool.sourceText && escapeTool.sourceBytes) {
+                    if (mode === 'bytes') {
+                        escapeTool.sourceBytes.checked = true;
+                        escapeTool.sourceText.checked = false;
+                    } else {
+                        escapeTool.sourceText.checked = true;
+                        escapeTool.sourceBytes.checked = false;
+                    }
+                }
+                setEscapeError('');
+                refreshEscapeUiState();
+            } catch (_) {
+                // ignore
+            }
+        }
+        if (escapeTool.input) {
+            escapeTool.input.addEventListener('input', autoDetectEscapeSource);
+        }
+        // --- Escape Tool auto-detect source mode ---
+        function detectSourceMode(text) {
+            if (!text) return 'text';
+            const s = String(text).trim();
+            const isBytesLiteral =
+                ((s.startsWith("b'") || s.startsWith("B'")) && s.endsWith("'")) ||
+                ((s.startsWith('b"') || s.startsWith('B"')) && s.endsWith('"'));
+            const hasHexEsc = /\\x[0-9a-fA-F]{2}/.test(s);
+            const compact = s.replace(/\s+/g, '');
+            const mostlyHex = /^\\x[0-9a-fA-F]{2}(\\x[0-9a-fA-F]{2})+$/i.test(compact);
+            return (isBytesLiteral || hasHexEsc || mostlyHex) ? 'bytes' : 'text';
+        }
+        function autoDetectEscapeSource() {
+            try {
+                const val = (escapeTool.input && escapeTool.input.value) || '';
+                const mode = detectSourceMode(val);
+                if (escapeTool.sourceText && escapeTool.sourceBytes) {
+                    if (mode === 'bytes') {
+                        escapeTool.sourceBytes.checked = true;
+                        escapeTool.sourceText.checked = false;
+                    } else {
+                        escapeTool.sourceText.checked = true;
+                        escapeTool.sourceBytes.checked = false;
+                    }
+                }
+                setEscapeError('');
+                refreshEscapeUiState();
+            } catch (_) {
+                // ignore
+            }
+        }
+        if (escapeTool.input) {
+            escapeTool.input.addEventListener('input', autoDetectEscapeSource);
+        }
+        if (escapeTool.sourceText && escapeTool.sourceBytes) {
+            escapeTool.sourceText.addEventListener('change', refreshEscapeUiState);
+            escapeTool.sourceBytes.addEventListener('change', refreshEscapeUiState);
+            refreshEscapeUiState();
+        }
+        // 初始化时自适应一次
+        autoDetectEscapeSource();
+
         // Setup Simplified/Traditional Converter using OpenCC
         // Lazy initialize converters to support file:// with CDN-loaded script
         let t2sConverter = null; // 繁 -> 简
@@ -1038,31 +1400,47 @@
 
         // Initial page load setup
         function init() {
-            switchTab('subtitle');
+            try {
+                switchTab('subtitle');
+                } catch (e) {
+                }
 
-            const initialStats = analyzeText('');
-            counterTool.hanziCount.textContent = initialStats.hanzi;
-            counterTool.wordCount.textContent = initialStats.words;
-            counterTool.puncCount.textContent = initialStats.punctuation;
-            counterTool.charCount.textContent = initialStats.totalChars;
+            try {
+                const initialStats = analyzeText('');
+                counterTool.hanziCount.textContent = initialStats.hanzi;
+                counterTool.wordCount.textContent = initialStats.words;
+                counterTool.puncCount.textContent = initialStats.punctuation;
+                counterTool.charCount.textContent = initialStats.totalChars;
+                } catch (e) {
+                }
 
-            updateCurrentTimestamp();
-            const now = new Date();
-            timestampTool.year.value = now.getFullYear();
-            timestampTool.month.value = now.getMonth() + 1;
-            timestampTool.day.value = now.getDate();
-            timestampTool.hour.value = now.getHours();
-            timestampTool.minute.value = now.getMinutes();
-            timestampTool.second.value = now.getSeconds();
-            updateTimestampFromDate();
+            try {
+                updateCurrentTimestamp();
+                const now = new Date();
+                timestampTool.year.value = now.getFullYear();
+                timestampTool.month.value = now.getMonth() + 1;
+                timestampTool.day.value = now.getDate();
+                timestampTool.hour.value = now.getHours();
+                timestampTool.minute.value = now.getMinutes();
+                timestampTool.second.value = now.getSeconds();
+                updateTimestampFromDate();
+                } catch (e) {
+                }
             
-            // Init duration tool
-            updateSecondsFromDuration();
-            updateDurationFromSeconds();
+            try {
+                // Init duration tool
+                updateSecondsFromDuration();
+                updateDurationFromSeconds();
+                } catch (e) {
+                }
             
-            // Set initial text for converter
-            converterTool.input.value = `在『政治的正確性』與『價值相對化』等好聽的名號下，各式各樣的『真相』就被囤積下來。于是人們“在舒適的生活中嬌生慣養，耳朵只聽自己喜歡的『真相』。各種『真相』之間既不互相衝突，也不互相矛盾，也沒辦法去否定批駁，因此就沒有人是完全正確的。所謂的“反仇恨”，其本質便是為了“避免鬥爭，在不受傷的情況下，互相掩護的鬧劇”。`;
-        }
+            try {
+                // Set initial text for converter
+                converterTool.input.value = `在『政治的正確性』與『價值相對化』等好聽的名號下，各式各樣的『真相』就被囤積下來。于是人們“在舒適的生活中嬌生慣養，耳朵只聽自己喜歡的『真相』。各種『真相』之間既不互相衝突，也不互相矛盾，也沒辦法去否定批駁，因此就沒有人是完全正確的。所謂的“反仇恨”，其本質便是為了“避免鬥爭，在不受傷的情況下，互相掩護的鬧劇”。`;
+                } catch (e) {
+                }
+
+            }
         
         init();
     </script>
