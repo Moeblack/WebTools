@@ -26,8 +26,6 @@ const TABS = [
 ];
 
 const IS_FILE = typeof location !== "undefined" && location.protocol === "file:";
-const GIF_WORKER_URL =
-  typeof window !== "undefined" ? new URL("./gif.worker.js", window.location.href).href : "./gif.worker.js";
 
 async function registerServiceWorker() {
   if (IS_FILE) return;
@@ -172,6 +170,8 @@ const app = createApp({
         isGenerating: false,
         status: "请选择 PNG / JPG 格式的精灵图",
         editPanelOpen: false,
+        workerUrl: "",
+        workerBlobUrl: "",
         edit: {
           cropX: 0,
           cropY: 0,
@@ -732,10 +732,11 @@ const app = createApp({
       }
       this.spriteGif.isGenerating = true;
       try {
+        const workerScript = await this.resolveSpriteWorkerUrl();
         const delay = Math.max(20, Math.round(1000 / Math.max(1, Number(this.spriteGif.fps) || 1)));
         const gif = new GIFConstructor({
           workers: 2,
-          workerScript: GIF_WORKER_URL,
+          workerScript,
           width: this.spriteGif.frameWidth,
           height: this.spriteGif.frameHeight,
           quality: 12,
@@ -757,6 +758,46 @@ const app = createApp({
         this.showToast(err?.message || "GIF 生成失败", "error");
       } finally {
         this.spriteGif.isGenerating = false;
+      }
+    },
+    async resolveSpriteWorkerUrl() {
+      if (this.spriteGif.workerUrl) return this.spriteGif.workerUrl;
+      if (typeof window === "undefined") return "./gif.worker.js";
+      const base = window.location.href;
+      const candidates = ["./gif.worker.js", "./public/gif.worker.js"];
+      for (let i = 0; i < candidates.length; i += 1) {
+        const url = new URL(candidates[i], base).href;
+        const ok = await this.checkWorkerExists(url);
+        if (ok) {
+          this.spriteGif.workerUrl = url;
+          return url;
+        }
+      }
+      const blobUrl = await this.fetchWorkerFromCdn();
+      if (blobUrl) {
+        this.spriteGif.workerUrl = blobUrl;
+        this.spriteGif.workerBlobUrl = blobUrl;
+        return blobUrl;
+      }
+      return new URL("./gif.worker.js", base).href;
+    },
+    async checkWorkerExists(url) {
+      try {
+        const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    async fetchWorkerFromCdn() {
+      try {
+        const resp = await fetch("https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js");
+        if (!resp.ok) return null;
+        const code = await resp.text();
+        const blob = new Blob([code], { type: "application/javascript" });
+        return URL.createObjectURL(blob);
+      } catch {
+        return null;
       }
     },
   },
@@ -788,6 +829,9 @@ const app = createApp({
   beforeUnmount() {
     if (this.timestampTicker) clearInterval(this.timestampTicker);
     this.stopSpritePreviewTimer();
+    if (this.spriteGif.workerBlobUrl) {
+      URL.revokeObjectURL(this.spriteGif.workerBlobUrl);
+    }
   },
 });
 
