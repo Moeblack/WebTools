@@ -448,11 +448,180 @@
           </div>
         </div>
       </section>
+
+      <!-- 精灵图转 GIF -->
+      <section class="tab-panel" v-show="activeTab === 'spriteGif'">
+        <div class="panel-grid two-columns sprite-tool-layout">
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>Sprite Sheet 上传</h2>
+              <p>点击或拖拽 PNG / JPG，设定分割参数即可预览动画。</p>
+            </div>
+            <div
+              class="sprite-dropzone"
+              :class="{ dragging: spriteGif.isDragging, 'has-image': spriteGif.imageUrl }"
+              @click="triggerSpriteFileSelect"
+              @dragenter.prevent="spriteGif.isDragging = true"
+              @dragleave.prevent="spriteGif.isDragging = false"
+              @dragover.prevent
+              @drop.prevent="handleSpriteDrop($event)"
+            >
+              <input
+                ref="spriteFileInput"
+                class="sr-only"
+                type="file"
+                accept=".png,.jpg,.jpeg"
+                @change="handleSpriteFileSelect($event.target.files)"
+              >
+              <div v-if="!spriteGif.imageUrl" class="dropzone-hint">
+                <strong>点击或拖入精灵图</strong>
+                <span>支持 PNG / JPG，推荐透明背景</span>
+              </div>
+              <div v-else class="dropzone-preview">
+                <img :src="spriteGif.imageUrl" :alt="spriteGif.imageName || 'Sprite Sheet 预览'">
+                <p class="muted">{{ spriteGif.imageName || 'Sprite Sheet' }}</p>
+              </div>
+            </div>
+            <div class="form-row space-between">
+              <p class="hint small-text">{{ spriteGif.status }}</p>
+              <button
+                class="btn btn-outline"
+                :disabled="!spriteGif.imageUrl"
+                @click.stop="spriteGif.editPanelOpen = !spriteGif.editPanelOpen"
+              >
+                {{ spriteGif.editPanelOpen ? "收起简单编辑" : "简单编辑" }}
+              </button>
+            </div>
+            <div class="sprite-edit-panel" v-if="spriteGif.editPanelOpen">
+              <div class="sprite-edit-grid">
+                <label class="field small">
+                  <span class="field-label">裁剪起点 X</span>
+                  <input type="number" min="0" v-model.number="spriteGif.edit.cropX">
+                </label>
+                <label class="field small">
+                  <span class="field-label">裁剪起点 Y</span>
+                  <input type="number" min="0" v-model.number="spriteGif.edit.cropY">
+                </label>
+                <label class="field small">
+                  <span class="field-label">裁剪宽度</span>
+                  <input type="number" min="1" v-model.number="spriteGif.edit.cropWidth">
+                </label>
+                <label class="field small">
+                  <span class="field-label">裁剪高度</span>
+                  <input type="number" min="1" v-model.number="spriteGif.edit.cropHeight">
+                </label>
+              </div>
+              <div class="sprite-edit-grid">
+                <label class="field small">
+                  <span class="field-label">旋转</span>
+                  <select v-model.number="spriteGif.edit.rotation">
+                    <option :value="0">0°</option>
+                    <option :value="90">90°</option>
+                    <option :value="180">180°</option>
+                    <option :value="270">270°</option>
+                  </select>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" v-model="spriteGif.edit.removeBg">
+                  <span>尝试去除背景</span>
+                </label>
+                <label class="field small" v-if="spriteGif.edit.removeBg">
+                  <span class="field-label">背景颜色</span>
+                  <input type="color" v-model="spriteGif.edit.bgColor">
+                </label>
+                <label class="field small" v-if="spriteGif.edit.removeBg">
+                  <span class="field-label">容差 {{ spriteGif.edit.bgTolerance }}</span>
+                  <input type="range" min="0" max="100" v-model.number="spriteGif.edit.bgTolerance">
+                </label>
+              </div>
+              <div class="form-row wrap">
+                <button class="btn btn-secondary" :disabled="!spriteGif.imageUrl" @click="applySpriteEdits">
+                  应用编辑
+                </button>
+                <button class="btn btn-ghost" :disabled="!spriteGif.originalDataUrl" @click="resetSpriteEdits">
+                  还原原图
+                </button>
+              </div>
+            </div>
+            <div class="sprite-settings-grid">
+              <label class="field small">
+                <span class="field-label">横向分割数（列）</span>
+                <input type="number" min="1" v-model.number="spriteGif.columns">
+              </label>
+              <label class="field small">
+                <span class="field-label">纵向分割数（行）</span>
+                <input type="number" min="1" v-model.number="spriteGif.rows">
+              </label>
+              <label class="field small">
+                <span class="field-label">动画速度 (FPS)</span>
+                <input type="number" min="1" v-model.number="spriteGif.fps">
+              </label>
+              <label class="field small">
+                <span class="field-label">内边距 (px)</span>
+                <input type="number" min="0" v-model.number="spriteGif.padding">
+              </label>
+            </div>
+            <div class="sprite-preview-block">
+              <div class="preview-canvas">
+                <img
+                  v-if="spriteGif.framePreviews.length"
+                  :src="spriteGif.framePreviews[spriteGif.previewFrameIndex]"
+                  alt="GIF 预览"
+                >
+                <p v-else class="muted">上传并配置精灵图后，可在此处实时预览动画。</p>
+              </div>
+              <div class="form-row space-between">
+                <div class="form-row compact">
+                  <button
+                    class="btn btn-secondary"
+                    :disabled="!spriteGif.framePreviews.length"
+                    @click="toggleSpritePreview"
+                  >
+                    {{ spriteGif.previewPlaying ? "暂停预览" : "继续预览" }}
+                  </button>
+                  <button
+                    class="btn btn-ghost"
+                    :disabled="!spriteGif.framePreviews.length"
+                    @click="spriteGif.previewFrameIndex = 0"
+                  >
+                    回到第 1 帧
+                  </button>
+                </div>
+                <p class="hint">FPS: {{ spriteGif.fps }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>分割确认（网格）</h2>
+              <p>确认网格切割是否准确，必要时微调参数。</p>
+            </div>
+            <div class="grid-area">
+              <img v-if="spriteGif.gridPreviewUrl" :src="spriteGif.gridPreviewUrl" alt="网格预览">
+              <p v-else class="muted">先在左侧上传精灵图，这里将显示网格与原图叠加效果。</p>
+            </div>
+            <div class="sprite-meta">
+              <p><strong>原图尺寸：</strong>{{ spriteGif.imageWidth }} × {{ spriteGif.imageHeight }}</p>
+              <p><strong>单帧尺寸：</strong>{{ spriteGif.frameWidth }} × {{ spriteGif.frameHeight }}</p>
+              <p><strong>帧总数：</strong>{{ spriteGif.frameCount }}</p>
+            </div>
+            <button
+              class="btn btn-primary full-width"
+              :disabled="!spriteGif.frames.length || spriteGif.isGenerating"
+              @click="generateSpriteGif"
+            >
+              {{ spriteGif.isGenerating ? "生成中..." : "生成 GIF 动画" }}
+            </button>
+          </div>
+        </div>
+      </section>
     </main>
 
     <div class="toast" v-if="toast.visible" :class="toast.type">{{ toast.message }}</div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>
