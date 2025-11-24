@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多功能文本处理工具 · Vue 版</title>
+
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="./manifest.webmanifest">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="https://img.icons8.com/color/192/administrative-tools.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="https://img.icons8.com/color/192/administrative-tools.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="./assets/index-BKu9QeKf.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DTMKydMJ.css">
+</head>
+<body>
+  <noscript>
+    <div class="noscript">
+      <div class="noscript-card">此网站需要启用 JavaScript 才能正常使用。</div>
+    </div>
+  </noscript>
+
+  <div id="app" class="app-shell" v-cloak>
+    <header class="app-header">
+      <p class="eyebrow">Vue 3 · PWA</p>
+      <h1>多功能文本处理工具</h1>
+      <p class="subtitle">字幕清理、文本批量处理、时间换算、编码转换等 10+ 常用工具，现已全面迁移到 Vue。</p>
+    </header>
+
+    <main class="workspace section-card">
+      <div class="app-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          class="tab-button"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <!-- 字幕工具 -->
+      <section class="tab-panel" v-show="activeTab === 'subtitle'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>批量字幕处理</h2>
+              <p>支持 SRT / VTT / LRC / ASS，多文件与文件夹上传。</p>
+            </div>
+            <div class="file-actions">
+              <label class="btn btn-outline">
+                上传字幕文件
+                <input
+                  class="sr-only"
+                  type="file"
+                  :key="subtitle.fileInputKey"
+                  multiple
+                  accept=".srt,.lrc,.ass,.ssa,.vtt"
+                  @change="handleSubtitleFiles($event.target.files)"
+                >
+              </label>
+              <label class="btn btn-outline">
+                选择文件夹
+                <input
+                  class="sr-only"
+                  type="file"
+                  :key="'folder-' + subtitle.fileInputKey"
+                  webkitdirectory
+                  directory
+                  multiple
+                  accept=".srt,.lrc,.ass,.ssa,.vtt"
+                  @change="handleSubtitleFiles($event.target.files)"
+                >
+              </label>
+            </div>
+            <p class="hint">{{ subtitle.status }}</p>
+            <div class="results-list">
+              <p v-if="!subtitle.batchResults.length" class="muted">请选择字幕文件开始批量处理，支持整个文件夹拖入。</p>
+              <div
+                class="result-item"
+                v-for="(item, idx) in subtitle.batchResults"
+                :key="idx"
+                :class="{ 'has-error': item.error }"
+              >
+                <div>
+                  <p class="filename">{{ item.originalName }}</p>
+                  <p class="result-note" v-if="item.error">{{ item.error }}</p>
+                  <p class="result-note" v-else>
+                    {{ item.newName }}
+                    <small v-if="item.format" class="tag">{{ item.format.toUpperCase() }}</small>
+                  </p>
+                </div>
+                <div class="result-actions">
+                  <span class="badge danger" v-if="item.error">失败</span>
+                  <template v-else>
+                    <span class="badge success">成功</span>
+                    <button class="btn btn-ghost" @click="downloadSubtitleItem(item)">下载</button>
+                  </template>
+                </div>
+              </div>
+            </div>
+            <div class="form-row compact">
+              <button class="btn btn-ghost" @click="clearSubtitleBatch">清空列表</button>
+              <button
+                class="btn btn-primary"
+                :disabled="!subtitleHasResults || subtitle.downloadInProgress"
+                @click="downloadSubtitleZip"
+              >
+                {{ subtitle.downloadInProgress ? "正在打包..." : "下载全部 ZIP" }}
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>单个文本处理</h2>
+              <p>自动识别字幕格式，一键清理时间轴与标签。</p>
+            </div>
+            <label class="field">
+              <span class="field-label">粘贴字幕内容</span>
+              <textarea
+                v-model="subtitle.pasteInput"
+                placeholder="在此粘贴字幕文本..."
+                @input="processSubtitlePaste"
+              ></textarea>
+            </label>
+            <label class="field">
+              <span class="field-label">
+                清理后的纯文本
+                <small v-if="subtitle.pasteFormat" class="tag">{{ subtitle.pasteFormat === 'unknown' ? '未知格式' : subtitle.pasteFormat.toUpperCase() }}</small>
+              </span>
+              <textarea v-model="subtitle.pasteOutput" readonly></textarea>
+            </label>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="processSubtitlePaste">开始处理</button>
+              <button class="btn btn-secondary" :disabled="!subtitle.pasteOutput" @click="copyValue(subtitle.pasteOutput)">
+                复制结果
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 文本清理 -->
+      <section class="tab-panel" v-show="activeTab === 'cleanup'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>原始文本</h2>
+            <textarea v-model="cleanup.input" placeholder="粘贴需要清理的文本..."></textarea>
+          </div>
+          <div class="panel">
+            <h2>清理结果</h2>
+            <textarea v-model="cleanup.output" readonly placeholder="点击开始处理后显示结果"></textarea>
+            <div class="option-group">
+              <label class="checkbox">
+                <input type="checkbox" v-model="cleanup.removeMarkdown">
+                <span>移除 Markdown 标记</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" v-model="cleanup.removeEmptyLines">
+                <span>移除空行</span>
+              </label>
+            </div>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="runCleanup">开始处理</button>
+              <button class="btn btn-secondary" :disabled="!cleanup.output" @click="copyCleanup">复制</button>
+              <button class="btn btn-outline" :disabled="!cleanup.output" @click="downloadCleanup">下载 .txt</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 文本拼接 -->
+      <section class="tab-panel" v-show="activeTab === 'joiner'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>多行输入</h2>
+            <textarea v-model="joiner.input" placeholder="在此输入或粘贴多行文本..."></textarea>
+          </div>
+          <div class="panel">
+            <h2>拼接配置</h2>
+            <label class="field">
+              <span class="field-label">分隔符（支持 \n、\t）</span>
+              <input type="text" v-model="joiner.separator">
+            </label>
+            <label class="field">
+              <span class="field-label">输出预览</span>
+              <textarea v-model="joiner.displayOutput" readonly class="mono"></textarea>
+            </label>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="runJoiner">开始拼接</button>
+              <button class="btn btn-secondary" :disabled="!joiner.lastResult" @click="copyJoiner">复制</button>
+              <button class="btn btn-outline" :disabled="!joiner.lastResult" @click="downloadJoiner">下载 .txt</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 文本加料 -->
+      <section class="tab-panel" v-show="activeTab === 'injector'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>原始文本</h2>
+            <textarea v-model="injector.input" @input="updateInjected" placeholder="输入需要加料的文本..."></textarea>
+          </div>
+          <div class="panel">
+            <h2>设置与结果</h2>
+            <label class="field">
+              <span class="field-label">插入字符串（默认零宽空格）</span>
+              <input type="text" v-model="injector.string" @input="updateInjected" placeholder="例如 · 或任意自定义字符串">
+            </label>
+            <button class="btn btn-ghost" @click="useZeroWidth">使用零宽空格</button>
+            <textarea v-model="injector.output" readonly placeholder="结果会实时显示在这里"></textarea>
+            <div class="form-row compact">
+              <button class="btn btn-secondary" :disabled="!injector.output" @click="copyInjector">复制</button>
+              <button class="btn btn-outline" :disabled="!injector.output" @click="downloadInjector">下载 .txt</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 字数统计 -->
+      <section class="tab-panel" v-show="activeTab === 'counter'">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>实时字数统计</h2>
+            <p>统计汉字、英文单词、标点符号以及字符总数。</p>
+          </div>
+          <textarea v-model="counter.input" placeholder="输入或粘贴文本，右侧实时统计..."></textarea>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <p class="stat-label">汉字/日文</p>
+              <p class="stat-value">{{ counterStats.hanzi }}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">英文单词</p>
+              <p class="stat-value">{{ counterStats.words }}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">标点符号</p>
+              <p class="stat-value">{{ counterStats.punctuation }}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">字符总数</p>
+              <p class="stat-value">{{ counterStats.totalChars }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 时间戳转换 -->
+      <section class="tab-panel" v-show="activeTab === 'timestamp'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>日期 → 时间戳</h2>
+              <p>输入年月日（可选时间），自动转换为 Unix 时间戳。</p>
+            </div>
+            <div class="form-row wrap">
+              <input type="number" v-model.number="timestamp.year" placeholder="年" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.month" placeholder="月" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.day" placeholder="日" @input="updateTimestampFromDate">
+            </div>
+            <div class="form-row wrap">
+              <input type="number" v-model.number="timestamp.hour" placeholder="小时" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.minute" placeholder="分钟" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.second" placeholder="秒" @input="updateTimestampFromDate">
+            </div>
+            <label class="field">
+              <span class="field-label">时间戳（秒）</span>
+              <input type="text" :value="timestamp.fromDate" readonly @click="copyTimestamp(timestamp.fromDate)">
+            </label>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>时间戳 → 日期</h2>
+              <p>输入时间戳，自动生成格式化日期。</p>
+            </div>
+            <label class="field">
+              <span class="field-label">Unix 时间戳</span>
+              <input type="number" v-model.number="timestamp.fromTsInput" @input="updateDateFromTimestamp">
+            </label>
+            <label class="field">
+              <span class="field-label">格式化结果</span>
+              <input type="text" :value="timestamp.fromTsOutput" readonly @click="copyTimestamp(timestamp.fromTsOutput)">
+            </label>
+            <div class="current-timestamp">
+              <span>当前时间戳：<strong>{{ timestamp.current }}</strong></span>
+              <button class="btn btn-ghost" @click="copyTimestamp(timestamp.current)">复制</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 时间段转换 -->
+      <section class="tab-panel" v-show="activeTab === 'duration'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>复合时间 → 秒</h2>
+              <p>输入天/时/分/秒，计算对应的总秒数。</p>
+            </div>
+            <div class="form-row wrap">
+              <input type="number" min="0" v-model="duration.days" placeholder="天" @input="updateSecondsFromDuration">
+              <input type="number" min="0" v-model="duration.hours" placeholder="小时" @input="updateSecondsFromDuration">
+              <input type="number" min="0" v-model="duration.minutes" placeholder="分钟" @input="updateSecondsFromDuration">
+              <input type="number" min="0" v-model="duration.seconds" placeholder="秒" @input="updateSecondsFromDuration">
+            </div>
+            <label class="field">
+              <span class="field-label">总秒数</span>
+              <input type="text" :value="duration.totalSeconds" readonly @click="copyTimestamp(duration.totalSeconds)">
+            </label>
+            <div class="quick-buttons">
+              <button class="quick-btn" @click="applyQuickDuration(0, 1)">1 小时</button>
+              <button class="quick-btn" @click="applyQuickDuration(0, 2)">2 小时</button>
+              <button class="quick-btn" @click="applyQuickDuration(0, 6)">6 小时</button>
+              <button class="quick-btn" @click="applyQuickDuration(1, 0)">1 天</button>
+              <button class="quick-btn" @click="applyQuickDuration(7, 0)">7 天</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>秒 → 复合时间</h2>
+              <p>输入总秒数，立即拆分为天 / 时 / 分 / 秒。</p>
+            </div>
+            <label class="field">
+              <span class="field-label">输入总秒数</span>
+              <input type="number" min="0" v-model="duration.totalSeconds" @input="updateDurationFromSeconds">
+            </label>
+            <div class="form-row wrap">
+              <input type="text" readonly :value="duration.outputs.days + ' 天'">
+              <input type="text" readonly :value="duration.outputs.hours + ' 小时'">
+              <input type="text" readonly :value="duration.outputs.minutes + ' 分钟'">
+              <input type="text" readonly :value="duration.outputs.seconds + ' 秒'">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Base64 -->
+      <section class="tab-panel" v-show="activeTab === 'base64'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>输入</h2>
+            <textarea v-model="base64.input" placeholder="输入原始文本或 Base64 字符串..."></textarea>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="encodeBase64">Base64 编码</button>
+              <button class="btn btn-outline" @click="decodeBase64">Base64 解码</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>输出</h2>
+            <textarea v-model="base64.output" readonly placeholder="结果将显示在这里"></textarea>
+            <div class="form-row compact">
+              <button class="btn btn-secondary" :disabled="!base64.output" @click="copyBase64">复制</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 文本转义 -->
+      <section class="tab-panel" v-show="activeTab === 'escape'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>源文本</h2>
+            <textarea
+              v-model="escape.input"
+              placeholder="输入普通字符串或包含 \\xAA 的字节序列..."
+              @input="autoDetectEscapeMode"
+            ></textarea>
+            <div class="option-group wrap">
+              <label class="radio">
+                <input type="radio" value="text" v-model="escape.sourceMode">
+                <span>字符串 → 转义</span>
+              </label>
+              <label class="radio">
+                <input type="radio" value="bytes" v-model="escape.sourceMode">
+                <span>转义 → 字符串</span>
+              </label>
+            </div>
+            <div class="option-group wrap">
+              <label class="field small">
+                <span class="field-label">编码</span>
+                <select v-model="escape.encoding">
+                  <option value="utf8">UTF-8</option>
+                  <option value="latin1">Latin-1</option>
+                </select>
+              </label>
+              <label class="field small">
+                <span class="field-label">输出模式</span>
+                <select v-model="escape.outputMode">
+                  <option value="python">Python 字节字面量</option>
+                  <option value="plain">纯 \xXX 序列</option>
+                </select>
+              </label>
+              <label class="field small">
+                <span class="field-label">Hex 大小写</span>
+                <select v-model="escape.hexCase">
+                  <option value="lower">小写</option>
+                  <option value="upper">大写</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn btn-primary" @click="runEscapeConversion">开始转换</button>
+          </div>
+          <div class="panel">
+            <h2>结果</h2>
+            <textarea v-model="escape.output" readonly placeholder="转换结果会显示在这里"></textarea>
+            <p class="error-banner" v-if="escape.error">{{ escape.error }}</p>
+            <div class="form-row compact">
+              <button class="btn btn-secondary" :disabled="!escape.output" @click="copyEscape">复制</button>
+              <button class="btn btn-outline" :disabled="!escape.output" @click="downloadEscape">下载 .txt</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 简繁转换 -->
+      <section class="tab-panel" v-show="activeTab === 'converter'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>输入文本</h2>
+            <textarea v-model="converter.input" placeholder="输入需要转换的简体或繁体文本"></textarea>
+            <div class="option-group">
+              <label class="checkbox">
+                <input type="checkbox" v-model="converter.quotes">
+                <span>同时将『』替换为【】</span>
+              </label>
+            </div>
+            <div class="form-row compact">
+              <button class="btn btn-primary" :disabled="converter.converting" @click="runConverter('t2s')">
+                {{ converter.converting ? "转换中..." : "繁体 → 简体" }}
+              </button>
+              <button class="btn btn-outline" :disabled="converter.converting" @click="runConverter('s2t')">
+                {{ converter.converting ? "转换中..." : "简体 → 繁体" }}
+              </button>
+            </div>
+            <p class="hint" v-if="!converter.ready">词库加载中，首次转换可能稍有延迟...</p>
+          </div>
+          <div class="panel">
+            <h2>转换结果</h2>
+            <textarea v-model="converter.output" readonly placeholder="转换完成后结果显示在此"></textarea>
+            <button class="btn btn-secondary" :disabled="!converter.output" @click="copyConverter">复制结果</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- GIF 转精灵图 -->
+      <section class="tab-panel" v-show="activeTab === 'gifSprite'">
+        <div class="panel-grid two-columns sprite-tool-layout">
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>GIF 上传与预览</h2>
+              <p>拖拽或选择 GIF，自动拆帧并实时预览动画。</p>
+            </div>
+            <div
+              class="sprite-dropzone"
+              :class="{ dragging: gifSprite.isDragging, 'has-image': gifSprite.totalFrames }"
+              @click="triggerGifSpriteUpload"
+              @dragenter.prevent="gifSprite.isDragging = true"
+              @dragleave.prevent="gifSprite.isDragging = false"
+              @dragover.prevent
+              @drop.prevent="handleGifSpriteDrop($event)"
+            >
+              <input
+                ref="gifSpriteFileInput"
+                class="sr-only"
+                type="file"
+                accept=".gif"
+                @change="handleGifSpriteFileSelect($event.target.files)"
+              >
+              <div v-if="!gifSprite.totalFrames" class="dropzone-hint">
+                <strong>点击或拖入 GIF 动画</strong>
+                <span>将自动解析并展示每一帧</span>
+              </div>
+              <div v-else class="dropzone-preview">
+                <p class="muted">{{ gifSprite.fileName || '已载入 GIF' }}</p>
+              </div>
+            </div>
+            <p class="hint small-text">
+              {{ gifSprite.isProcessing ? '正在解析 GIF...' : gifSprite.status }}
+            </p>
+            <div class="sprite-preview-block">
+              <div class="preview-canvas">
+                <img
+                  v-if="gifSprite.activeFrames.length"
+                  :src="gifSprite.activeFrames[gifSprite.previewFrameIndex]?.previewUrl"
+                  alt="GIF 预览"
+                >
+                <p v-else class="muted">上传 GIF 后将在此处预览原动画。</p>
+              </div>
+              <div class="form-row space-between">
+                <div class="form-row compact">
+                  <button
+                    class="btn btn-secondary"
+                    :disabled="!gifSprite.activeFrames.length"
+                    @click="toggleGifSpritePreview"
+                  >
+                    {{ gifSprite.previewPlaying ? "暂停预览" : "继续预览" }}
+                  </button>
+                  <button
+                    class="btn btn-ghost"
+                    :disabled="!gifSprite.activeFrames.length"
+                    @click="gifSprite.previewFrameIndex = 0"
+                  >
+                    回到第 1 帧
+                  </button>
+                </div>
+                <p class="hint small-text">
+                  帧序：{{ gifSprite.activeFrames.length ? (gifSprite.previewFrameIndex + 1) + ' / ' + gifSprite.activeFrames.length : '--' }}
+                </p>
+              </div>
+            </div>
+            <div class="panel-header secondary">
+              <h3>输出设置</h3>
+              <p>控制精灵图列数、间距与背景。</p>
+            </div>
+            <div class="sprite-settings-grid">
+              <label class="field small">
+                <span class="field-label">列数限制</span>
+                <input type="number" min="1" v-model.number="gifSprite.columns">
+              </label>
+              <label class="field small">
+                <span class="field-label">间距 (Padding)</span>
+                <input type="number" min="0" v-model.number="gifSprite.padding">
+              </label>
+            </div>
+            <div class="option-group wrap">
+              <label class="radio">
+                <input type="radio" value="transparent" v-model="gifSprite.backgroundMode">
+                <span>透明背景</span>
+              </label>
+              <label class="radio">
+                <input type="radio" value="color" v-model="gifSprite.backgroundMode">
+                <span>纯色背景</span>
+              </label>
+              <input
+                v-if="gifSprite.backgroundMode === 'color'"
+                type="color"
+                v-model="gifSprite.backgroundColor"
+              >
+            </div>
+            <div class="gif-output-note">
+              <p><strong>预计尺寸：</strong>{{ gifSprite.estimatedText }}</p>
+              <p><strong>列上限：</strong>{{ gifSprite.columns }}</p>
+            </div>
+            <div class="sprite-meta">
+              <p>
+                <strong>原 GIF：</strong>
+                <template v-if="gifSprite.gifWidth && gifSprite.gifHeight">
+                  {{ gifSprite.gifWidth }} × {{ gifSprite.gifHeight }}
+                </template>
+                <template v-else>--</template>
+              </p>
+              <p><strong>帧总数：</strong>{{ gifSprite.totalFrames || '--' }}</p>
+              <p><strong>可用帧：</strong>{{ gifSprite.activeFrames.length || 0 }}</p>
+            </div>
+          </div>
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>精灵图预览</h2>
+              <p>实时查看排版效果，可点击帧直接剔除并预览 padding。</p>
+            </div>
+            <div
+              class="grid-area"
+              :class="{ 'is-interactive': gifSprite.spritePreviewUrl }"
+              @click="handleGifSpritePreviewClick"
+            >
+              <img
+                v-if="gifSprite.spritePreviewUrl"
+                ref="gifSpritePreviewImage"
+                :src="gifSprite.spritePreviewUrl"
+                alt="Sprite 预览"
+              >
+              <p v-else class="muted">生成后的精灵图将在此展示，包含网格与 padding 辅助线。</p>
+            </div>
+            <p class="hint small-text" v-if="gifSprite.spritePreviewUrl">
+              点击预览中的任意帧即可删除，再次点击恢复。下方列表也可快速撤销。
+            </p>
+            <div class="discarded-frame-list" v-if="gifSprite.discardedFrames.length">
+              <p class="hint small-text">已丢弃帧（点击恢复）</p>
+              <div class="discarded-grid">
+                <button
+                  class="discarded-item"
+                  v-for="idx in gifSprite.discardedFrames"
+                  :key="idx"
+                  @click="restoreGifSpriteFrame(idx)"
+                >
+                  <img :src="getGifDiscardPreview(idx)" :alt="'Frame ' + (idx + 1)">
+                  <span>#{{ idx + 1 }}</span>
+                </button>
+              </div>
+              <button class="btn btn-ghost" @click="restoreAllGifSpriteFrames">恢复全部帧</button>
+            </div>
+            <div class="sprite-meta">
+              <p>
+                <strong>排版：</strong>
+                <template v-if="gifSprite.currentRows && gifSprite.currentColumns">
+                  {{ gifSprite.currentRows }} 行 × {{ gifSprite.currentColumns }} 列
+                </template>
+                <template v-else>--</template>
+              </p>
+              <p>
+                <strong>输出尺寸：</strong>
+                <template v-if="gifSprite.spriteWidth && gifSprite.spriteHeight">
+                  {{ gifSprite.spriteWidth }} × {{ gifSprite.spriteHeight }}
+                </template>
+                <template v-else>--</template>
+              </p>
+              <p><strong>有效帧：</strong>{{ gifSprite.activeFrames.length || 0 }}</p>
+            </div>
+            <button
+              class="btn btn-primary full-width"
+              :disabled="!gifSprite.spriteUrl"
+              @click="downloadGifSpriteSheet"
+            >
+              下载精灵图
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 精灵图转 GIF -->
+      <section class="tab-panel" v-show="activeTab === 'spriteGif'">
+        <div class="panel-grid two-columns sprite-tool-layout">
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>Sprite Sheet 上传</h2>
+              <p>点击或拖拽 PNG / JPG，设定分割参数即可预览动画。</p>
+            </div>
+            <div
+              class="sprite-dropzone"
+              :class="{ dragging: spriteGif.isDragging, 'has-image': spriteGif.imageUrl }"
+              @click="triggerSpriteFileSelect"
+              @dragenter.prevent="spriteGif.isDragging = true"
+              @dragleave.prevent="spriteGif.isDragging = false"
+              @dragover.prevent
+              @drop.prevent="handleSpriteDrop($event)"
+            >
+              <input
+                ref="spriteFileInput"
+                class="sr-only"
+                type="file"
+                accept=".png,.jpg,.jpeg"
+                @change="handleSpriteFileSelect($event.target.files)"
+              >
+              <div v-if="!spriteGif.imageUrl" class="dropzone-hint">
+                <strong>点击或拖入精灵图</strong>
+                <span>支持 PNG / JPG，推荐透明背景</span>
+              </div>
+              <div v-else class="dropzone-preview">
+                <img :src="spriteGif.imageUrl" :alt="spriteGif.imageName || 'Sprite Sheet 预览'">
+                <p class="muted">{{ spriteGif.imageName || 'Sprite Sheet' }}</p>
+              </div>
+            </div>
+            <div class="form-row space-between">
+              <p class="hint small-text">{{ spriteGif.status }}</p>
+              <button
+                class="btn btn-outline"
+                :disabled="!spriteGif.imageUrl"
+                @click.stop="spriteGif.editPanelOpen = !spriteGif.editPanelOpen"
+              >
+                {{ spriteGif.editPanelOpen ? "收起简单编辑" : "简单编辑" }}
+              </button>
+            </div>
+            <div class="sprite-edit-panel" v-if="spriteGif.editPanelOpen">
+              <div class="sprite-edit-grid">
+                <label class="field small">
+                  <span class="field-label">裁剪起点 X</span>
+                  <input type="number" min="0" v-model.number="spriteGif.edit.cropX">
+                </label>
+                <label class="field small">
+                  <span class="field-label">裁剪起点 Y</span>
+                  <input type="number" min="0" v-model.number="spriteGif.edit.cropY">
+                </label>
+                <label class="field small">
+                  <span class="field-label">裁剪宽度</span>
+                  <input type="number" min="1" v-model.number="spriteGif.edit.cropWidth">
+                </label>
+                <label class="field small">
+                  <span class="field-label">裁剪高度</span>
+                  <input type="number" min="1" v-model.number="spriteGif.edit.cropHeight">
+                </label>
+              </div>
+              <div class="sprite-edit-grid">
+                <label class="field small">
+                  <span class="field-label">旋转</span>
+                  <select v-model.number="spriteGif.edit.rotation">
+                    <option :value="0">0°</option>
+                    <option :value="90">90°</option>
+                    <option :value="180">180°</option>
+                    <option :value="270">270°</option>
+                  </select>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" v-model="spriteGif.edit.removeBg">
+                  <span>尝试去除背景</span>
+                </label>
+                <label class="field small" v-if="spriteGif.edit.removeBg">
+                  <span class="field-label">背景颜色</span>
+                  <input type="color" v-model="spriteGif.edit.bgColor">
+                </label>
+                <label class="field small" v-if="spriteGif.edit.removeBg">
+                  <span class="field-label">容差 {{ spriteGif.edit.bgTolerance }}</span>
+                  <input type="range" min="0" max="100" v-model.number="spriteGif.edit.bgTolerance">
+                </label>
+              </div>
+              <div class="form-row wrap">
+                <button class="btn btn-secondary" :disabled="!spriteGif.imageUrl" @click="applySpriteEdits">
+                  应用编辑
+                </button>
+                <button class="btn btn-ghost" :disabled="!spriteGif.originalDataUrl" @click="resetSpriteEdits">
+                  还原原图
+                </button>
+              </div>
+            </div>
+            <div class="sprite-settings-grid">
+              <label class="field small">
+                <span class="field-label">横向分割数（列）</span>
+                <input type="number" min="1" v-model.number="spriteGif.columns">
+              </label>
+              <label class="field small">
+                <span class="field-label">纵向分割数（行）</span>
+                <input type="number" min="1" v-model.number="spriteGif.rows">
+              </label>
+              <label class="field small">
+                <span class="field-label">动画速度 (FPS)</span>
+                <input type="number" min="1" v-model.number="spriteGif.fps">
+              </label>
+              <label class="field small">
+                <span class="field-label">内边距 (px)</span>
+                <input type="number" min="0" v-model.number="spriteGif.padding">
+              </label>
+            </div>
+            <div class="sprite-preview-block">
+              <div class="preview-canvas">
+                <img
+                  v-if="spriteGif.framePreviews.length"
+                  :src="spriteGif.framePreviews[spriteGif.previewFrameIndex]"
+                  alt="GIF 预览"
+                >
+                <p v-else class="muted">上传并配置精灵图后，可在此处实时预览动画。</p>
+              </div>
+              <div class="form-row space-between">
+                <div class="form-row compact">
+                  <button
+                    class="btn btn-secondary"
+                    :disabled="!spriteGif.framePreviews.length"
+                    @click="toggleSpritePreview"
+                  >
+                    {{ spriteGif.previewPlaying ? "暂停预览" : "继续预览" }}
+                  </button>
+                  <button
+                    class="btn btn-ghost"
+                    :disabled="!spriteGif.framePreviews.length"
+                    @click="spriteGif.previewFrameIndex = 0"
+                  >
+                    回到第 1 帧
+                  </button>
+                </div>
+                <p class="hint">FPS: {{ spriteGif.fps }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>分割确认（网格）</h2>
+              <p>确认网格切割是否准确，必要时微调参数。</p>
+            </div>
+            <div
+              class="grid-area"
+              :class="{ 'is-interactive': spriteGif.gridPreviewUrl }"
+              @click="handleSpriteGridClick"
+            >
+              <img
+                v-if="spriteGif.gridPreviewUrl"
+                ref="spriteGridImage"
+                :src="spriteGif.gridPreviewUrl"
+                alt="网格预览"
+              >
+              <p v-else class="muted">先在左侧上传精灵图，这里将显示网格与原图叠加效果。</p>
+            </div>
+            <p class="hint small-text" v-if="spriteGif.gridPreviewUrl">
+              点击具体格子可切换丢弃该帧，再点一次即可恢复，同时可直观看到 padding 的有效区域。
+            </p>
+            <div class="sprite-meta">
+              <p><strong>原图尺寸：</strong>{{ spriteGif.imageWidth }} × {{ spriteGif.imageHeight }}</p>
+              <p><strong>单帧尺寸：</strong>{{ spriteGif.frameWidth }} × {{ spriteGif.frameHeight }}</p>
+              <p>
+                <strong>帧总数：</strong>{{ spriteGif.totalFrameCount }}
+                <span v-if="spriteGif.discardedFrames.length" class="muted">（可用 {{ spriteGif.frameCount }}）</span>
+              </p>
+            </div>
+            <button
+              class="btn btn-primary full-width"
+              :disabled="!spriteGif.frames.length || spriteGif.isGenerating"
+              @click="generateSpriteGif"
+            >
+              {{ spriteGif.isGenerating ? "生成中..." : "生成 GIF 动画" }}
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" v-if="toast.visible" :class="toast.type">{{ toast.message }}</div>
+  </div>
+
+</body>
+</html>
