@@ -6,7 +6,7 @@
  * - 导航请求离线回退
  */
 
-const VERSION = "v1.0.1";
+const VERSION = "v1.0.2";
 const CACHE_NAME = `webtools-cache-${VERSION}`;
 
 // 基于 SW 注册作用域计算 BASE 前缀（如 "/" 或 "/WebTools/"）
@@ -15,18 +15,10 @@ const BASE = SCOPE_PATH.endsWith("/") ? SCOPE_PATH : SCOPE_PATH + "/";
 
 // 预缓存核心资源（相对 BASE）
 const PRECACHE_FILES = [
-  "",                 // 根，用于导航回退
+  "", // 根（用于导航回退）
   "index.html",
   "manifest.webmanifest",
-  "assets/styles.css",
-  // 入口与核心模块
-  "src/main.js",
-  "src/core/app.js",
-  "src/ui/tabs.js",
-  // 工具类
-  "src/utils/clipboard.js",
-  "src/utils/lazyLoad.js",
-  // 其余 tools 按需加载，可后续补充
+  "gif.worker.js",
 ];
 const PRECACHE_URLS = PRECACHE_FILES.map((p) => BASE + p);
 

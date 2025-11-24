@@ -10,6 +10,7 @@ import { base64Encode, base64Decode } from "./tools/base64.js";
 import { convertEscapes, detectSourceMode } from "./tools/escape.js";
 import { ensureConverters, convertText as convertOpenCC, convertQuotes } from "./tools/converter.js";
 import { copyText } from "./utils/clipboard.js";
+import { lazyLoadScript } from "./utils/lazyLoad.js";
 
 const TABS = [
   { key: "subtitle", label: "字幕工具" },
@@ -27,6 +28,9 @@ const TABS = [
 ];
 
 const IS_FILE = typeof location !== "undefined" && location.protocol === "file:";
+const GIF_JS_URL = "https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js";
+const GIF_READY = () => typeof window !== "undefined" && typeof window.GIF === "function";
+let gifJsReadyPromise = null;
 
 async function registerServiceWorker() {
   if (IS_FILE) return;
@@ -148,6 +152,7 @@ const app = createApp({
         quotes: true,
         converting: false,
         ready: false,
+        prefetching: false,
       },
       spriteGif: {
         columns: 4,
@@ -178,6 +183,8 @@ const app = createApp({
         editPanelOpen: false,
         workerUrl: "",
         workerBlobUrl: "",
+        gifLibReady: false,
+        gifLibLoading: false,
         edit: {
           cropX: 0,
           cropY: 0,
@@ -452,13 +459,16 @@ const app = createApp({
       downloadText("escaped_text.txt", this.escape.output);
     },
     async prefetchConverters() {
+      if (this.converter.prefetching || this.converter.ready) return;
+      this.converter.prefetching = true;
       try {
         const ok = await ensureConverters();
         this.converter.ready = ok;
       } catch {
         this.converter.ready = false;
+      } finally {
+        this.converter.prefetching = false;
       }
-      setTimeout(() => (this.converter.ready = true), 4000);
     },
     async runConverter(direction) {
       if (!this.converter.input) {
@@ -470,6 +480,7 @@ const app = createApp({
         const text = await convertOpenCC(direction, this.converter.input);
         const result = this.converter.quotes ? convertQuotes(text) : text;
         this.converter.output = result;
+        this.converter.ready = true;
         this.showToast("转换完成", "success");
       } catch (e) {
         this.showToast(e.message || "转换失败，请稍后重试", "error");
@@ -1247,18 +1258,44 @@ const app = createApp({
       this.syncSpriteImageMeta(this.spriteGif.originalDataUrl);
       this.showToast("已还原原图", "info");
     },
+    async ensureGifJs() {
+      if (this.spriteGif.gifLibReady || GIF_READY()) {
+        this.spriteGif.gifLibReady = true;
+        return true;
+      }
+      if (!gifJsReadyPromise) {
+        gifJsReadyPromise = lazyLoadScript(GIF_JS_URL, GIF_READY, {
+          timeout: 15000,
+          attrs: { crossorigin: "anonymous" },
+        }).catch((err) => {
+          gifJsReadyPromise = null;
+          throw err;
+        });
+      }
+      try {
+        await gifJsReadyPromise;
+        this.spriteGif.gifLibReady = true;
+        return true;
+      } catch (err) {
+        console.warn("GIF.js 加载失败", err);
+        this.showToast("GIF 库加载失败，请稍后重试", "error");
+        return false;
+      }
+    },
     async generateSpriteGif() {
       if (!this.spriteGif.frames.length) {
         this.showToast("请先上传并分割精灵图", "warning");
         return;
       }
-      const GIFConstructor = window.GIF;
-      if (!GIFConstructor) {
-        this.showToast("GIF 生成库未加载", "error");
-        return;
-      }
       this.spriteGif.isGenerating = true;
       try {
+        const ready = await this.ensureGifJs();
+        if (!ready) return;
+        const GIFConstructor = window.GIF;
+        if (!GIFConstructor) {
+          this.showToast("GIF 生成库未加载", "error");
+          return;
+        }
         const workerScript = await this.resolveSpriteWorkerUrl();
         const delay = Math.max(20, Math.round(1000 / Math.max(1, Number(this.spriteGif.fps) || 1)));
         const gif = new GIFConstructor({
@@ -1329,6 +1366,14 @@ const app = createApp({
     },
   },
   watch: {
+    activeTab(newTab) {
+      if (newTab === "converter") {
+        this.prefetchConverters();
+      }
+      if (newTab === "spriteGif") {
+        this.ensureGifJs();
+      }
+    },
     "spriteGif.columns"() {
       this.updateSpriteFrames();
     },
@@ -1364,7 +1409,6 @@ const app = createApp({
     this.updateTimestampFromDate();
     this.updateDurationFromSeconds();
     this.startTimestampTicker();
-    this.prefetchConverters();
     registerServiceWorker();
   },
   beforeUnmount() {
