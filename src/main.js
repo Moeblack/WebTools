@@ -26,6 +26,8 @@ const TABS = [
 ];
 
 const IS_FILE = typeof location !== "undefined" && location.protocol === "file:";
+const GIF_WORKER_URL =
+  typeof window !== "undefined" ? new URL("./gif.worker.js", window.location.href).href : "./gif.worker.js";
 
 async function registerServiceWorker() {
   if (IS_FILE) return;
@@ -733,7 +735,7 @@ const app = createApp({
         const delay = Math.max(20, Math.round(1000 / Math.max(1, Number(this.spriteGif.fps) || 1)));
         const gif = new GIFConstructor({
           workers: 2,
-          workerScript: "https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js",
+          workerScript: GIF_WORKER_URL,
           width: this.spriteGif.frameWidth,
           height: this.spriteGif.frameHeight,
           quality: 12,
