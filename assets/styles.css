@@ -584,6 +584,10 @@ select:focus {
   padding: 0.5rem;
 }
 
+.grid-area.is-interactive {
+  cursor: crosshair;
+}
+
 .grid-area img {
   max-width: 100%;
   max-height: 100%;

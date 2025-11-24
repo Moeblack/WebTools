@@ -160,12 +160,17 @@ const app = createApp({
         imageHeight: 0,
         frameWidth: 0,
         frameHeight: 0,
+        totalFrameCount: 0,
         frameCount: 0,
         frames: [],
         framePreviews: [],
+        allFrames: [],
+        allFramePreviews: [],
+        discardedFrames: [],
         previewFrameIndex: 0,
         previewPlaying: true,
         gridPreviewUrl: "",
+        effectivePadding: 0,
         isDragging: false,
         isGenerating: false,
         status: "请选择 PNG / JPG 格式的精灵图",
@@ -524,15 +529,73 @@ const app = createApp({
     clampSpriteValue(value, min, max) {
       return Math.min(Math.max(value, min), max);
     },
+    computeSpriteGridMetrics(imageWidth, imageHeight, columns, rows, paddingValue) {
+      const cellWidth = Math.floor(imageWidth / columns);
+      const cellHeight = Math.floor(imageHeight / rows);
+      if (cellWidth <= 0 || cellHeight <= 0) {
+        throw new Error("请调整分割数以得到有效的帧尺寸");
+      }
+      const desiredPadding = Math.max(0, Number(paddingValue) || 0);
+      const maxPadding = Math.min(Math.floor(cellWidth / 2) - 1, Math.floor(cellHeight / 2) - 1);
+      const effectivePadding = Math.max(0, isNaN(maxPadding) ? 0 : Math.min(desiredPadding, Math.max(0, maxPadding)));
+      const frameWidth = Math.max(1, cellWidth - effectivePadding * 2);
+      const frameHeight = Math.max(1, cellHeight - effectivePadding * 2);
+      return { cellWidth, cellHeight, effectivePadding, frameWidth, frameHeight };
+    },
+    refreshSpriteFrameUsage() {
+      const discardSet = new Set(this.spriteGif.discardedFrames || []);
+      const frames = [];
+      const previews = [];
+      (this.spriteGif.allFrames || []).forEach((canvas, idx) => {
+        if (discardSet.has(idx)) return;
+        frames.push(canvas);
+        const preview = this.spriteGif.allFramePreviews?.[idx];
+        if (preview) {
+          previews.push(preview);
+        } else {
+          previews.push(canvas.toDataURL("image/png"));
+        }
+      });
+      this.spriteGif.frames = frames;
+      this.spriteGif.framePreviews = previews;
+      this.spriteGif.frameCount = frames.length;
+      if (!frames.length) {
+        this.spriteGif.previewFrameIndex = 0;
+        this.stopSpritePreviewTimer();
+      } else if (this.spriteGif.previewFrameIndex >= frames.length) {
+        this.spriteGif.previewFrameIndex = 0;
+      }
+      if (this.spriteGif.previewPlaying && frames.length) {
+        this.startSpritePreviewTimer();
+      }
+      this.updateSpriteFrameStatus();
+    },
+    updateSpriteFrameStatus() {
+      const total = this.spriteGif.totalFrameCount || 0;
+      if (!total) return;
+      const frameWidth = this.spriteGif.frameWidth || 0;
+      const frameHeight = this.spriteGif.frameHeight || 0;
+      const discarded = this.spriteGif.discardedFrames?.length || 0;
+      let status = `总帧数 ${total} · 单帧 ${frameWidth} × ${frameHeight}`;
+      if (discarded) {
+        status += ` · 已丢弃 ${discarded} · 可用 ${Math.max(0, total - discarded)}`;
+      }
+      this.spriteGif.status = status;
+    },
     async updateSpriteFrames() {
       if (!this.spriteGif.imageUrl) {
         this.spriteGif.frames = [];
         this.spriteGif.framePreviews = [];
+        this.spriteGif.allFrames = [];
+        this.spriteGif.allFramePreviews = [];
         this.spriteGif.frameCount = 0;
+        this.spriteGif.totalFrameCount = 0;
         this.spriteGif.frameWidth = 0;
         this.spriteGif.frameHeight = 0;
         this.spriteGif.gridPreviewUrl = "";
         this.spriteGif.previewFrameIndex = 0;
+        this.spriteGif.discardedFrames = [];
+        this.spriteGif.effectivePadding = 0;
         this.stopSpritePreviewTimer();
         this.spriteGif.status = "请选择 PNG / JPG 格式的精灵图";
         return;
@@ -541,16 +604,13 @@ const app = createApp({
       const rows = Math.max(1, Math.floor(Number(this.spriteGif.rows) || 1));
       try {
         const image = await this.loadImageFromUrl(this.spriteGif.imageUrl);
-        const cellWidth = Math.floor(image.width / columns);
-        const cellHeight = Math.floor(image.height / rows);
-        if (cellWidth <= 0 || cellHeight <= 0) {
-          throw new Error("请调整分割数以得到有效的帧尺寸");
-        }
-        const padding = Math.max(0, Number(this.spriteGif.padding) || 0);
-        const maxPadding = Math.min(Math.floor(cellWidth / 2) - 1, Math.floor(cellHeight / 2) - 1);
-        const effectivePadding = Math.max(0, isNaN(maxPadding) ? 0 : Math.min(padding, Math.max(0, maxPadding)));
-        const frameWidth = Math.max(1, cellWidth - effectivePadding * 2);
-        const frameHeight = Math.max(1, cellHeight - effectivePadding * 2);
+        const { cellWidth, cellHeight, effectivePadding, frameWidth, frameHeight } = this.computeSpriteGridMetrics(
+          image.width,
+          image.height,
+          columns,
+          rows,
+          this.spriteGif.padding
+        );
         const frames = [];
         const previews = [];
         for (let row = 0; row < rows; row += 1) {
@@ -568,37 +628,68 @@ const app = createApp({
             previews.push(frameCanvas.toDataURL("image/png"));
           }
         }
-        this.spriteGif.frames = frames;
-        this.spriteGif.framePreviews = previews;
+        this.spriteGif.allFrames = frames;
+        this.spriteGif.allFramePreviews = previews;
+        this.spriteGif.totalFrameCount = frames.length;
         this.spriteGif.frameWidth = frameWidth;
         this.spriteGif.frameHeight = frameHeight;
-        this.spriteGif.frameCount = frames.length;
-        this.spriteGif.status = `总帧数 ${frames.length} · 单帧 ${frameWidth} × ${frameHeight}`;
-        this.spriteGif.gridPreviewUrl = this.buildSpriteGridPreview(image, columns, rows);
+        this.spriteGif.effectivePadding = effectivePadding;
+        this.spriteGif.discardedFrames = [];
         this.spriteGif.previewFrameIndex = 0;
-        if (this.spriteGif.previewPlaying) {
-          this.startSpritePreviewTimer();
-        }
+        this.refreshSpriteFrameUsage();
+        this.spriteGif.gridPreviewUrl = this.buildSpriteGridPreview(
+          image,
+          columns,
+          rows,
+          effectivePadding,
+          new Set()
+        );
       } catch (err) {
         this.spriteGif.frames = [];
         this.spriteGif.framePreviews = [];
+        this.spriteGif.allFrames = [];
+        this.spriteGif.allFramePreviews = [];
         this.spriteGif.frameCount = 0;
+        this.spriteGif.totalFrameCount = 0;
+        this.spriteGif.frameWidth = 0;
+        this.spriteGif.frameHeight = 0;
         this.spriteGif.gridPreviewUrl = "";
+        this.spriteGif.previewFrameIndex = 0;
+        this.spriteGif.discardedFrames = [];
+        this.spriteGif.effectivePadding = 0;
         this.stopSpritePreviewTimer();
         this.spriteGif.status = err?.message || "精灵图解析失败";
         this.showToast(err?.message || "精灵图解析失败", "error");
       }
     },
-    buildSpriteGridPreview(image, columns, rows) {
+    buildSpriteGridPreview(image, columns, rows, padding = 0, discardedSet) {
       const gridCanvas = document.createElement("canvas");
       gridCanvas.width = image.width;
       gridCanvas.height = image.height;
       const ctx = gridCanvas.getContext("2d");
       ctx.drawImage(image, 0, 0);
-      ctx.strokeStyle = "rgba(37,99,235,0.75)";
-      ctx.lineWidth = 1;
       const colWidth = image.width / columns;
       const rowHeight = image.height / rows;
+      const discardLookup = discardedSet instanceof Set ? discardedSet : new Set();
+      if (discardLookup.size) {
+        ctx.save();
+        ctx.fillStyle = "rgba(239,68,68,0.18)";
+        ctx.strokeStyle = "rgba(239,68,68,0.65)";
+        ctx.lineWidth = 2;
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < columns; col += 1) {
+            const index = row * columns + col;
+            if (!discardLookup.has(index)) continue;
+            const x = col * colWidth;
+            const y = row * rowHeight;
+            ctx.fillRect(x, y, colWidth, rowHeight);
+            ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(colWidth), Math.round(rowHeight));
+          }
+        }
+        ctx.restore();
+      }
+      ctx.strokeStyle = "rgba(37,99,235,0.75)";
+      ctx.lineWidth = 1;
       for (let i = 1; i < columns; i += 1) {
         const x = Math.round(colWidth * i) + 0.5;
         ctx.beginPath();
@@ -613,7 +704,81 @@ const app = createApp({
         ctx.lineTo(image.width, y);
         ctx.stroke();
       }
+      if (padding > 0) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(251,191,36,0.9)";
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1;
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < columns; col += 1) {
+            const x = col * colWidth + padding;
+            const y = row * rowHeight + padding;
+            const width = colWidth - padding * 2;
+            const height = rowHeight - padding * 2;
+            if (width <= 1 || height <= 1) continue;
+            ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(width), Math.round(height));
+          }
+        }
+        ctx.restore();
+      }
       return gridCanvas.toDataURL("image/png");
+    },
+    async rebuildSpriteGridPreview() {
+      if (!this.spriteGif.imageUrl) {
+        this.spriteGif.gridPreviewUrl = "";
+        return;
+      }
+      try {
+        const image = await this.loadImageFromUrl(this.spriteGif.imageUrl);
+        const columns = Math.max(1, Math.floor(Number(this.spriteGif.columns) || 1));
+        const rows = Math.max(1, Math.floor(Number(this.spriteGif.rows) || 1));
+        const { effectivePadding } = this.computeSpriteGridMetrics(
+          image.width,
+          image.height,
+          columns,
+          rows,
+          this.spriteGif.padding
+        );
+        this.spriteGif.effectivePadding = effectivePadding;
+        this.spriteGif.gridPreviewUrl = this.buildSpriteGridPreview(
+          image,
+          columns,
+          rows,
+          effectivePadding,
+          new Set(this.spriteGif.discardedFrames || [])
+        );
+      } catch (err) {
+        console.warn("无法更新网格预览", err);
+      }
+    },
+    handleSpriteGridClick(event) {
+      if (!this.spriteGif.gridPreviewUrl) return;
+      const img = this.$refs?.spriteGridImage;
+      if (!img) return;
+      const rect = img.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const clickX = event.clientX - rect.left;
+      const clickY = event.clientY - rect.top;
+      if (clickX < 0 || clickY < 0 || clickX > rect.width || clickY > rect.height) return;
+      const columns = Math.max(1, Math.floor(Number(this.spriteGif.columns) || 1));
+      const rows = Math.max(1, Math.floor(Number(this.spriteGif.rows) || 1));
+      const col = Math.min(columns - 1, Math.floor((clickX / rect.width) * columns));
+      const row = Math.min(rows - 1, Math.floor((clickY / rect.height) * rows));
+      const frameIndex = row * columns + col;
+      this.toggleSpriteFrameDiscard(frameIndex);
+    },
+    toggleSpriteFrameDiscard(frameIndex) {
+      const total = this.spriteGif.totalFrameCount || 0;
+      if (!Number.isInteger(frameIndex) || frameIndex < 0 || frameIndex >= total) return;
+      const discardSet = new Set(this.spriteGif.discardedFrames || []);
+      if (discardSet.has(frameIndex)) {
+        discardSet.delete(frameIndex);
+      } else {
+        discardSet.add(frameIndex);
+      }
+      this.spriteGif.discardedFrames = Array.from(discardSet).sort((a, b) => a - b);
+      this.refreshSpriteFrameUsage();
+      this.rebuildSpriteGridPreview();
     },
     startSpritePreviewTimer() {
       this.stopSpritePreviewTimer();

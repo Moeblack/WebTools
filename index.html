@@ -597,14 +597,29 @@
               <h2>分割确认（网格）</h2>
               <p>确认网格切割是否准确，必要时微调参数。</p>
             </div>
-            <div class="grid-area">
-              <img v-if="spriteGif.gridPreviewUrl" :src="spriteGif.gridPreviewUrl" alt="网格预览">
+            <div
+              class="grid-area"
+              :class="{ 'is-interactive': spriteGif.gridPreviewUrl }"
+              @click="handleSpriteGridClick"
+            >
+              <img
+                v-if="spriteGif.gridPreviewUrl"
+                ref="spriteGridImage"
+                :src="spriteGif.gridPreviewUrl"
+                alt="网格预览"
+              >
               <p v-else class="muted">先在左侧上传精灵图，这里将显示网格与原图叠加效果。</p>
             </div>
+            <p class="hint small-text" v-if="spriteGif.gridPreviewUrl">
+              点击具体格子可切换丢弃该帧，再点一次即可恢复，同时可直观看到 padding 的有效区域。
+            </p>
             <div class="sprite-meta">
               <p><strong>原图尺寸：</strong>{{ spriteGif.imageWidth }} × {{ spriteGif.imageHeight }}</p>
               <p><strong>单帧尺寸：</strong>{{ spriteGif.frameWidth }} × {{ spriteGif.frameHeight }}</p>
-              <p><strong>帧总数：</strong>{{ spriteGif.frameCount }}</p>
+              <p>
+                <strong>帧总数：</strong>{{ spriteGif.totalFrameCount }}
+                <span v-if="spriteGif.discardedFrames.length" class="muted">（可用 {{ spriteGif.frameCount }}）</span>
+              </p>
             </div>
             <button
               class="btn btn-primary full-width"
