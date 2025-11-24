@@ -449,6 +449,181 @@
         </div>
       </section>
 
+      <!-- GIF 转精灵图 -->
+      <section class="tab-panel" v-show="activeTab === 'gifSprite'">
+        <div class="panel-grid two-columns sprite-tool-layout">
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>GIF 上传与预览</h2>
+              <p>拖拽或选择 GIF，自动拆帧并实时预览动画。</p>
+            </div>
+            <div
+              class="sprite-dropzone"
+              :class="{ dragging: gifSprite.isDragging, 'has-image': gifSprite.totalFrames }"
+              @click="triggerGifSpriteUpload"
+              @dragenter.prevent="gifSprite.isDragging = true"
+              @dragleave.prevent="gifSprite.isDragging = false"
+              @dragover.prevent
+              @drop.prevent="handleGifSpriteDrop($event)"
+            >
+              <input
+                ref="gifSpriteFileInput"
+                class="sr-only"
+                type="file"
+                accept=".gif"
+                @change="handleGifSpriteFileSelect($event.target.files)"
+              >
+              <div v-if="!gifSprite.totalFrames" class="dropzone-hint">
+                <strong>点击或拖入 GIF 动画</strong>
+                <span>将自动解析并展示每一帧</span>
+              </div>
+              <div v-else class="dropzone-preview">
+                <p class="muted">{{ gifSprite.fileName || '已载入 GIF' }}</p>
+              </div>
+            </div>
+            <p class="hint small-text">
+              {{ gifSprite.isProcessing ? '正在解析 GIF...' : gifSprite.status }}
+            </p>
+            <div class="sprite-preview-block">
+              <div class="preview-canvas">
+                <img
+                  v-if="gifSprite.activeFrames.length"
+                  :src="gifSprite.activeFrames[gifSprite.previewFrameIndex]?.previewUrl"
+                  alt="GIF 预览"
+                >
+                <p v-else class="muted">上传 GIF 后将在此处预览原动画。</p>
+              </div>
+              <div class="form-row space-between">
+                <div class="form-row compact">
+                  <button
+                    class="btn btn-secondary"
+                    :disabled="!gifSprite.activeFrames.length"
+                    @click="toggleGifSpritePreview"
+                  >
+                    {{ gifSprite.previewPlaying ? "暂停预览" : "继续预览" }}
+                  </button>
+                  <button
+                    class="btn btn-ghost"
+                    :disabled="!gifSprite.activeFrames.length"
+                    @click="gifSprite.previewFrameIndex = 0"
+                  >
+                    回到第 1 帧
+                  </button>
+                </div>
+                <p class="hint small-text">
+                  帧序：{{ gifSprite.activeFrames.length ? (gifSprite.previewFrameIndex + 1) + ' / ' + gifSprite.activeFrames.length : '--' }}
+                </p>
+              </div>
+            </div>
+            <div class="panel-header secondary">
+              <h3>输出设置</h3>
+              <p>控制精灵图列数、间距与背景。</p>
+            </div>
+            <div class="sprite-settings-grid">
+              <label class="field small">
+                <span class="field-label">列数限制</span>
+                <input type="number" min="1" v-model.number="gifSprite.columns">
+              </label>
+              <label class="field small">
+                <span class="field-label">间距 (Padding)</span>
+                <input type="number" min="0" v-model.number="gifSprite.padding">
+              </label>
+            </div>
+            <div class="option-group wrap">
+              <label class="radio">
+                <input type="radio" value="transparent" v-model="gifSprite.backgroundMode">
+                <span>透明背景</span>
+              </label>
+              <label class="radio">
+                <input type="radio" value="color" v-model="gifSprite.backgroundMode">
+                <span>纯色背景</span>
+              </label>
+              <input
+                v-if="gifSprite.backgroundMode === 'color'"
+                type="color"
+                v-model="gifSprite.backgroundColor"
+              >
+            </div>
+            <div class="gif-output-note">
+              <p><strong>预计尺寸：</strong>{{ gifSprite.estimatedText }}</p>
+              <p><strong>列上限：</strong>{{ gifSprite.columns }}</p>
+            </div>
+            <div class="sprite-meta">
+              <p>
+                <strong>原 GIF：</strong>
+                <template v-if="gifSprite.gifWidth && gifSprite.gifHeight">
+                  {{ gifSprite.gifWidth }} × {{ gifSprite.gifHeight }}
+                </template>
+                <template v-else>--</template>
+              </p>
+              <p><strong>帧总数：</strong>{{ gifSprite.totalFrames || '--' }}</p>
+              <p><strong>可用帧：</strong>{{ gifSprite.activeFrames.length || 0 }}</p>
+            </div>
+          </div>
+          <div class="panel sprite-column">
+            <div class="panel-header">
+              <h2>精灵图预览</h2>
+              <p>实时查看排版效果，可点击帧直接剔除并预览 padding。</p>
+            </div>
+            <div
+              class="grid-area"
+              :class="{ 'is-interactive': gifSprite.spritePreviewUrl }"
+              @click="handleGifSpritePreviewClick"
+            >
+              <img
+                v-if="gifSprite.spritePreviewUrl"
+                ref="gifSpritePreviewImage"
+                :src="gifSprite.spritePreviewUrl"
+                alt="Sprite 预览"
+              >
+              <p v-else class="muted">生成后的精灵图将在此展示，包含网格与 padding 辅助线。</p>
+            </div>
+            <p class="hint small-text" v-if="gifSprite.spritePreviewUrl">
+              点击预览中的任意帧即可删除，再次点击恢复。下方列表也可快速撤销。
+            </p>
+            <div class="discarded-frame-list" v-if="gifSprite.discardedFrames.length">
+              <p class="hint small-text">已丢弃帧（点击恢复）</p>
+              <div class="discarded-grid">
+                <button
+                  class="discarded-item"
+                  v-for="idx in gifSprite.discardedFrames"
+                  :key="idx"
+                  @click="restoreGifSpriteFrame(idx)"
+                >
+                  <img :src="getGifDiscardPreview(idx)" :alt="'Frame ' + (idx + 1)">
+                  <span>#{{ idx + 1 }}</span>
+                </button>
+              </div>
+              <button class="btn btn-ghost" @click="restoreAllGifSpriteFrames">恢复全部帧</button>
+            </div>
+            <div class="sprite-meta">
+              <p>
+                <strong>排版：</strong>
+                <template v-if="gifSprite.currentRows && gifSprite.currentColumns">
+                  {{ gifSprite.currentRows }} 行 × {{ gifSprite.currentColumns }} 列
+                </template>
+                <template v-else>--</template>
+              </p>
+              <p>
+                <strong>输出尺寸：</strong>
+                <template v-if="gifSprite.spriteWidth && gifSprite.spriteHeight">
+                  {{ gifSprite.spriteWidth }} × {{ gifSprite.spriteHeight }}
+                </template>
+                <template v-else>--</template>
+              </p>
+              <p><strong>有效帧：</strong>{{ gifSprite.activeFrames.length || 0 }}</p>
+            </div>
+            <button
+              class="btn btn-primary full-width"
+              :disabled="!gifSprite.spriteUrl"
+              @click="downloadGifSpriteSheet"
+            >
+              下载精灵图
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- 精灵图转 GIF -->
       <section class="tab-panel" v-show="activeTab === 'spriteGif'">
         <div class="panel-grid two-columns sprite-tool-layout">

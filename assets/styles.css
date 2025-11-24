@@ -150,6 +150,19 @@ body {
   margin: 0.35rem 0 0;
   color: var(--muted);
 }
+.panel-header.secondary {
+  border-top: 1px dashed var(--border);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+.panel-header.secondary h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.panel-header.secondary p {
+  margin-top: 0.35rem;
+  color: var(--muted);
+}
 
 textarea,
 input,
@@ -608,4 +621,56 @@ select:focus {
 
 .sprite-meta strong {
   font-weight: 600;
+}
+.gif-output-note {
+  margin: 0.5rem 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.gif-output-note strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.discarded-frame-list {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.discarded-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0.5rem;
+}
+.discarded-item {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 0.4rem;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.discarded-item:hover {
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.08);
+}
+.discarded-item img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  background: var(--card);
+}
+.discarded-item span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
 }

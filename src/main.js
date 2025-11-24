@@ -22,6 +22,7 @@ const TABS = [
   { key: "base64", label: "Base64" },
   { key: "escape", label: "文本转义" },
   { key: "converter", label: "简繁转换" },
+  { key: "gifSprite", label: "GIF 转精灵图" },
   { key: "spriteGif", label: "精灵图转GIF" },
 ];
 
@@ -184,11 +185,39 @@ const app = createApp({
           cropHeight: 0,
           rotation: 0,
           removeBg: false,
-          bgColor: "#ffffff",
-          bgTolerance: 30,
+        bgColor: "#ffffff",
+        bgTolerance: 30,
         },
       },
+      gifSprite: {
+        isDragging: false,
+        isProcessing: false,
+        status: "请上传 GIF 动画",
+        fileName: "",
+        gifWidth: 0,
+        gifHeight: 0,
+        totalFrames: 0,
+        frames: [],
+        activeFrames: [],
+        activeCellPositions: [],
+        discardedFrames: [],
+        columns: 8,
+        padding: 0,
+        backgroundMode: "transparent",
+        backgroundColor: "#000000",
+        spriteUrl: "",
+        spritePreviewUrl: "",
+        spriteWidth: 0,
+        spriteHeight: 0,
+        previewFrameIndex: 0,
+        previewPlaying: true,
+        estimatedText: "--",
+        currentColumns: 0,
+        currentRows: 0,
+        decoderModule: null,
+      },
       spritePreviewTimer: null,
+      gifSpritePreviewTimer: null,
     };
   },
   computed: {
@@ -451,6 +480,331 @@ const app = createApp({
     copyConverter() {
       this.copyValue(this.converter.output);
     },
+    triggerGifSpriteUpload() {
+      const input = this.$refs?.gifSpriteFileInput;
+      if (input) input.click();
+    },
+    async handleGifSpriteFileSelect(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+      const file = files[0];
+      if (!file.type?.includes("gif")) {
+        this.showToast("仅支持 GIF 动画", "warning");
+        return;
+      }
+      try {
+        await this.loadGifSpriteFile(file);
+      } catch (err) {
+        this.showToast(err?.message || "GIF 解析失败", "error");
+      } finally {
+        if (this.$refs?.gifSpriteFileInput) {
+          this.$refs.gifSpriteFileInput.value = "";
+        }
+      }
+    },
+    handleGifSpriteDrop(event) {
+      this.gifSprite.isDragging = false;
+      if (!event.dataTransfer?.files?.length) return;
+      this.handleGifSpriteFileSelect(event.dataTransfer.files);
+    },
+    async loadGifSpriteFile(file) {
+      this.gifSprite.isProcessing = true;
+      this.gifSprite.status = "正在解析 GIF...";
+      this.stopGifSpritePreviewTimer();
+      try {
+        const buffer = await this.readFileAsArrayBuffer(file);
+        const { frames, width, height } = await this.decodeGifArrayBuffer(buffer);
+        if (!frames.length) {
+          throw new Error("未能在 GIF 中检测到有效帧");
+        }
+        this.gifSprite.fileName = file.name;
+        this.gifSprite.frames = frames;
+        this.gifSprite.gifWidth = width;
+        this.gifSprite.gifHeight = height;
+        this.gifSprite.totalFrames = frames.length;
+        this.gifSprite.discardedFrames = [];
+        this.gifSprite.previewFrameIndex = 0;
+        this.gifSprite.previewPlaying = true;
+        this.gifSprite.status = `已载入 ${frames.length} 帧 · 单帧 ${width} × ${height}`;
+        this.refreshGifSpriteFrames();
+        this.showToast("GIF 解析完成", "success");
+      } finally {
+        this.gifSprite.isProcessing = false;
+      }
+    },
+    async decodeGifArrayBuffer(arrayBuffer) {
+      const module = await this.ensureGifuctModule();
+      const { parseGIF, decompressFrames } = module;
+      if (!parseGIF || !decompressFrames) {
+        throw new Error("GIF 解码器加载失败");
+      }
+      const gif = parseGIF(arrayBuffer);
+      const frames = decompressFrames(gif, true) || [];
+      const width = gif?.lsd?.width || 0;
+      const height = gif?.lsd?.height || 0;
+      if (!width || !height) {
+        throw new Error("GIF 尺寸无效");
+      }
+      const workCanvas = document.createElement("canvas");
+      workCanvas.width = width;
+      workCanvas.height = height;
+      const workCtx = workCanvas.getContext("2d");
+      if (!workCtx) throw new Error("画布初始化失败");
+      workCtx.clearRect(0, 0, width, height);
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+      if (!tempCtx) throw new Error("无法创建临时画布");
+      const normalized = [];
+      let previousImageData = null;
+      frames.forEach((frame, index) => {
+        const dims = frame?.dims || {};
+        if (!dims.width || !dims.height) return;
+        if (frame.disposalType === 3) {
+          previousImageData = workCtx.getImageData(0, 0, width, height);
+        }
+        tempCanvas.width = dims.width;
+        tempCanvas.height = dims.height;
+        const imageData = tempCtx.createImageData(dims.width, dims.height);
+        const patch = frame.patch instanceof Uint8ClampedArray ? frame.patch : new Uint8ClampedArray(frame.patch);
+        imageData.data.set(patch);
+        tempCtx.putImageData(imageData, 0, 0);
+        workCtx.drawImage(tempCanvas, dims.left, dims.top);
+        const frameCanvas = document.createElement("canvas");
+        frameCanvas.width = width;
+        frameCanvas.height = height;
+        const frameCtx = frameCanvas.getContext("2d");
+        if (!frameCtx) return;
+        frameCtx.drawImage(workCanvas, 0, 0);
+        normalized.push({
+          canvas: frameCanvas,
+          previewUrl: frameCanvas.toDataURL("image/png"),
+          delay: Math.max(20, frame.delay || 80),
+          sourceIndex: index,
+        });
+        if (frame.disposalType === 2) {
+          workCtx.clearRect(dims.left || 0, dims.top || 0, dims.width, dims.height);
+        } else if (frame.disposalType === 3 && previousImageData) {
+          workCtx.putImageData(previousImageData, 0, 0);
+          previousImageData = null;
+        }
+      });
+      return { frames: normalized, width, height };
+    },
+    async ensureGifuctModule() {
+      if (this.gifSprite.decoderModule) return this.gifSprite.decoderModule;
+      const module = await import("https://esm.sh/gifuct-js@2.1.2");
+      this.gifSprite.decoderModule = module;
+      return module;
+    },
+    refreshGifSpriteFrames() {
+      const discardSet = new Set(this.gifSprite.discardedFrames || []);
+      const active = (this.gifSprite.frames || []).filter((frame) => !discardSet.has(frame.sourceIndex));
+      this.gifSprite.activeFrames = active;
+      if (!active.length) {
+        this.gifSprite.previewFrameIndex = 0;
+        this.stopGifSpritePreviewTimer();
+      } else if (this.gifSprite.previewFrameIndex >= active.length) {
+        this.gifSprite.previewFrameIndex = 0;
+      }
+      if (this.gifSprite.previewPlaying && active.length) {
+        this.startGifSpritePreviewTimer();
+      }
+      this.rebuildGifSpriteSheet();
+      if (this.gifSprite.totalFrames) {
+        const discarded = discardSet.size;
+        const available = Math.max(0, this.gifSprite.totalFrames - discarded);
+        const base = `原 GIF：${this.gifSprite.gifWidth} × ${this.gifSprite.gifHeight} · 帧 ${this.gifSprite.totalFrames}`;
+        this.gifSprite.status = discarded ? `${base} · 可用 ${available}` : base;
+      }
+    },
+    rebuildGifSpriteSheet() {
+      const frames = this.gifSprite.activeFrames || [];
+      if (!frames.length) {
+        this.gifSprite.spriteUrl = "";
+        this.gifSprite.spritePreviewUrl = "";
+        this.gifSprite.spriteWidth = 0;
+        this.gifSprite.spriteHeight = 0;
+        this.gifSprite.estimatedText = "--";
+        this.gifSprite.currentColumns = 0;
+        this.gifSprite.currentRows = 0;
+        this.gifSprite.activeCellPositions = [];
+        return;
+      }
+      const columns = Math.max(1, Math.floor(Number(this.gifSprite.columns) || 1));
+      const padding = Math.max(0, Math.floor(Number(this.gifSprite.padding) || 0));
+      const frameWidth = this.gifSprite.gifWidth || frames[0]?.canvas?.width || 0;
+      const frameHeight = this.gifSprite.gifHeight || frames[0]?.canvas?.height || 0;
+      const rows = Math.max(1, Math.ceil(frames.length / columns));
+      const width = columns * frameWidth + padding * Math.max(0, columns - 1);
+      const height = rows * frameHeight + padding * Math.max(0, rows - 1);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      if (this.gifSprite.backgroundMode === "color") {
+        ctx.fillStyle = this.gifSprite.backgroundColor || "#000000";
+        ctx.fillRect(0, 0, width, height);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+      }
+      ctx.imageSmoothingEnabled = false;
+      const positions = [];
+      frames.forEach((frame, index) => {
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        const x = col * (frameWidth + padding);
+        const y = row * (frameHeight + padding);
+        ctx.drawImage(frame.canvas, x, y);
+        positions.push({
+          sourceIndex: frame.sourceIndex,
+          x,
+          y,
+          width: frameWidth,
+          height: frameHeight,
+        });
+      });
+      this.gifSprite.spriteUrl = canvas.toDataURL("image/png");
+      this.gifSprite.spritePreviewUrl = this.buildGifSpritePreview(
+        canvas,
+        positions,
+        columns,
+        frameWidth,
+        frameHeight,
+        padding
+      );
+      this.gifSprite.spriteWidth = width;
+      this.gifSprite.spriteHeight = height;
+      this.gifSprite.estimatedText = `${width} × ${height}`;
+      this.gifSprite.currentColumns = columns;
+      this.gifSprite.currentRows = rows;
+      this.gifSprite.activeCellPositions = positions;
+    },
+    buildGifSpritePreview(spriteCanvas, positions, columns, frameWidth, frameHeight, padding) {
+      const previewCanvas = document.createElement("canvas");
+      previewCanvas.width = spriteCanvas.width;
+      previewCanvas.height = spriteCanvas.height;
+      const ctx = previewCanvas.getContext("2d");
+      if (!ctx) return "";
+      ctx.drawImage(spriteCanvas, 0, 0);
+      const totalRows = Math.max(1, Math.ceil(positions.length / columns));
+      ctx.save();
+      ctx.strokeStyle = "rgba(37,99,235,0.75)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
+      positions.forEach((cell) => {
+        ctx.strokeRect(Math.round(cell.x) + 0.5, Math.round(cell.y) + 0.5, cell.width, cell.height);
+      });
+      ctx.restore();
+      if (padding > 0) {
+        ctx.save();
+        ctx.fillStyle = "rgba(251,191,36,0.18)";
+        positions.forEach((cell, idx) => {
+          const col = idx % columns;
+          const row = Math.floor(idx / columns);
+          const nextIndex = idx + 1;
+          if (col !== columns - 1 && nextIndex <= positions.length - 1) {
+            ctx.fillRect(cell.x + cell.width, cell.y, padding, cell.height);
+          }
+          if (row < totalRows - 1) {
+            ctx.fillRect(cell.x, cell.y + cell.height, cell.width, padding);
+          }
+        });
+        ctx.restore();
+      }
+      return previewCanvas.toDataURL("image/png");
+    },
+    handleGifSpritePreviewClick(event) {
+      if (!this.gifSprite.spritePreviewUrl) return;
+      const img = this.$refs?.gifSpritePreviewImage;
+      if (!img) return;
+      const rect = img.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const clickX = event.clientX - rect.left;
+      const clickY = event.clientY - rect.top;
+      if (clickX < 0 || clickY < 0) return;
+      const scaleX = (this.gifSprite.spriteWidth || rect.width) / rect.width;
+      const scaleY = (this.gifSprite.spriteHeight || rect.height) / rect.height;
+      const realX = clickX * scaleX;
+      const realY = clickY * scaleY;
+      const targetCell = this.gifSprite.activeCellPositions.find(
+        (cell) => realX >= cell.x && realX <= cell.x + cell.width && realY >= cell.y && realY <= cell.y + cell.height
+      );
+      if (targetCell) {
+        this.toggleGifSpriteFrame(targetCell.sourceIndex);
+      }
+    },
+    toggleGifSpriteFrame(frameIndex) {
+      if (!Number.isInteger(frameIndex) || frameIndex < 0) return;
+      const discardSet = new Set(this.gifSprite.discardedFrames || []);
+      if (discardSet.has(frameIndex)) {
+        discardSet.delete(frameIndex);
+      } else {
+        discardSet.add(frameIndex);
+      }
+      this.gifSprite.discardedFrames = Array.from(discardSet).sort((a, b) => a - b);
+      this.refreshGifSpriteFrames();
+    },
+    restoreGifSpriteFrame(frameIndex) {
+      if (!Number.isInteger(frameIndex)) return;
+      if (!this.gifSprite.discardedFrames.length) return;
+      this.gifSprite.discardedFrames = this.gifSprite.discardedFrames.filter((idx) => idx !== frameIndex);
+      this.refreshGifSpriteFrames();
+    },
+    restoreAllGifSpriteFrames() {
+      if (!this.gifSprite.discardedFrames.length) return;
+      this.gifSprite.discardedFrames = [];
+      this.refreshGifSpriteFrames();
+    },
+    startGifSpritePreviewTimer() {
+      this.stopGifSpritePreviewTimer();
+      if (!this.gifSprite.previewPlaying || !this.gifSprite.activeFrames.length) return;
+      this.scheduleGifSpritePreviewTick();
+    },
+    scheduleGifSpritePreviewTick() {
+      if (!this.gifSprite.previewPlaying || !this.gifSprite.activeFrames.length) return;
+      const currentFrame = this.gifSprite.activeFrames[this.gifSprite.previewFrameIndex];
+      const delay = Math.max(30, currentFrame?.delay || 80);
+      this.gifSpritePreviewTimer = setTimeout(() => {
+        if (!this.gifSprite.previewPlaying || !this.gifSprite.activeFrames.length) return;
+        this.gifSprite.previewFrameIndex = (this.gifSprite.previewFrameIndex + 1) % this.gifSprite.activeFrames.length;
+        this.scheduleGifSpritePreviewTick();
+      }, delay);
+    },
+    stopGifSpritePreviewTimer() {
+      if (this.gifSpritePreviewTimer) {
+        clearTimeout(this.gifSpritePreviewTimer);
+        this.gifSpritePreviewTimer = null;
+      }
+    },
+    toggleGifSpritePreview() {
+      if (!this.gifSprite.activeFrames.length) return;
+      this.gifSprite.previewPlaying = !this.gifSprite.previewPlaying;
+      if (this.gifSprite.previewPlaying) {
+        this.startGifSpritePreviewTimer();
+      } else {
+        this.stopGifSpritePreviewTimer();
+      }
+    },
+    async downloadGifSpriteSheet() {
+      if (!this.gifSprite.spriteUrl) {
+        this.showToast("请先生成精灵图", "warning");
+        return;
+      }
+      try {
+        const res = await fetch(this.gifSprite.spriteUrl);
+        const blob = await res.blob();
+        const filename = (this.gifSprite.fileName?.replace(/\\.[^.]+$/, "") || "gif_sprite") + "_sheet.png";
+        downloadBlob(filename, blob);
+        this.showToast("精灵图已下载", "success");
+      } catch (err) {
+        this.showToast(err?.message || "下载失败", "error");
+      }
+    },
+    getGifDiscardPreview(frameIndex) {
+      const frame = (this.gifSprite.frames || []).find((item) => item.sourceIndex === frameIndex);
+      return frame?.previewUrl || "";
+    },
     triggerSpriteFileSelect() {
       const input = this.$refs?.spriteFileInput;
       if (input) input.click();
@@ -491,6 +845,14 @@ const app = createApp({
         reader.onload = () => resolve(reader.result);
         reader.onerror = () => reject(new Error("读取文件失败"));
         reader.readAsDataURL(file);
+      });
+    },
+    readFileAsArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("读取文件失败"));
+        reader.readAsArrayBuffer(file);
       });
     },
     loadImageFromUrl(src) {
@@ -981,6 +1343,20 @@ const app = createApp({
         this.startSpritePreviewTimer();
       }
     },
+    "gifSprite.columns"() {
+      this.rebuildGifSpriteSheet();
+    },
+    "gifSprite.padding"() {
+      this.rebuildGifSpriteSheet();
+    },
+    "gifSprite.backgroundMode"() {
+      this.rebuildGifSpriteSheet();
+    },
+    "gifSprite.backgroundColor"() {
+      if (this.gifSprite.backgroundMode === "color") {
+        this.rebuildGifSpriteSheet();
+      }
+    },
   },
   mounted() {
     this.runJoiner();
@@ -994,6 +1370,7 @@ const app = createApp({
   beforeUnmount() {
     if (this.timestampTicker) clearInterval(this.timestampTicker);
     this.stopSpritePreviewTimer();
+    this.stopGifSpritePreviewTimer();
     if (this.spriteGif.workerBlobUrl) {
       URL.revokeObjectURL(this.spriteGif.workerBlobUrl);
     }
