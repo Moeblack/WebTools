@@ -3,425 +3,456 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>多功能文本处理工具</title>
+  <title>多功能文本处理工具 · Vue 版</title>
 
-  <!-- 主题色与 PWA 清单 -->
   <meta name="theme-color" content="#2563eb">
   <link rel="manifest" href="./manifest.webmanifest">
 
-  <!-- Favicon 与图标（可直接热链） -->
   <link rel="icon" type="image/png" sizes="32x32" href="https://img.icons8.com/color/192/administrative-tools.png">
   <link rel="apple-touch-icon" sizes="192x192" href="https://img.icons8.com/color/192/administrative-tools.png">
 
-  <!-- 字体与 Tailwind（CDN） -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- 自定义样式（从内联样式迁移到独立文件） -->
   <link rel="stylesheet" href="./assets/styles.css">
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body>
   <noscript>
-    <div class="container mx-auto max-w-3xl">
-      <div class="bg-red-50 text-red-700 p-4 rounded-lg shadow">此网站需要启用 JavaScript 才能使用全部功能。</div>
+    <div class="noscript">
+      <div class="noscript-card">此网站需要启用 JavaScript 才能正常使用。</div>
     </div>
   </noscript>
 
-  <div class="container mx-auto max-w-5xl">
-    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-10">
-      <!-- Tab Navigation -->
-      <div class="border-b border-gray-200 mb-6">
-        <nav class="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-          <button id="tab-subtitle" class="tab-active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-subtitle">字幕工具</button>
-          <button id="tab-cleanup" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-cleanup">文本清理</button>
-          <button id="tab-joiner" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-joiner">文本拼接</button>
-          <button id="tab-injector" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-injector">文本加料</button>
-          <button id="tab-counter" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-counter">字数统计</button>
-          <button id="tab-timestamp" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-timestamp">时间戳转换</button>
-          <button id="tab-duration" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-duration">时间段转换</button>
-          <button id="tab-base64" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-base64">Base64 编码</button>
-          <button id="tab-escape" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-escape">文本转义</button>
-          <button id="tab-converter" class="text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200" aria-controls="content-converter">简繁转换</button>
-        </nav>
+  <div id="app" class="app-shell" v-cloak>
+    <header class="app-header">
+      <p class="eyebrow">Vue 3 · PWA</p>
+      <h1>多功能文本处理工具</h1>
+      <p class="subtitle">字幕清理、文本批量处理、时间换算、编码转换等 10+ 常用工具，现已全面迁移到 Vue。</p>
+    </header>
+
+    <main class="workspace section-card">
+      <div class="app-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          class="tab-button"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
+        >
+          {{ tab.label }}
+        </button>
       </div>
 
-      <!-- Tab Content -->
-      <div>
-        <!-- Subtitle Tool -->
-        <div id="content-subtitle">
-          <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">字幕批量处理工具</h1>
-            <p class="text-gray-500 mt-2">智能识别 SRT, VTT, LRC, ASS 字幕，支持批量处理和文件夹上传。</p>
-          </div>
-          
-          <div class="flex flex-col lg:flex-row gap-8">
-            <!-- Left Column: Batch Processing -->
-            <div class="lg:w-1/2 flex flex-col">
-              <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">批量文件处理</h2>
-              <div class="flex-grow flex flex-col">
-                <div class="flex flex-col sm:flex-row gap-4 mb-4">
-                  <label id="subtitle-files-label" for="subtitle-files-input" class="flex-1 text-center cursor-pointer bg-white border border-blue-500 text-blue-500 hover:bg-blue-50 font-semibold py-3 px-6 rounded-lg transition-all">上传多个文件</label>
-                  <input type="file" id="subtitle-files-input" accept=".srt,.lrc,.ass,.ssa,.vtt" class="hidden" multiple>
-                  
-                  <label id="subtitle-folder-label" for="subtitle-folder-input" class="flex-1 text-center cursor-pointer bg-white border border-indigo-500 text-indigo-500 hover:bg-indigo-50 font-semibold py-3 px-6 rounded-lg transition-all">选择文件夹</label>
-                  <input type="file" id="subtitle-folder-input" class="hidden" webkitdirectory directory>
+      <!-- 字幕工具 -->
+      <section class="tab-panel" v-show="activeTab === 'subtitle'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>批量字幕处理</h2>
+              <p>支持 SRT / VTT / LRC / ASS，多文件与文件夹上传。</p>
+            </div>
+            <div class="file-actions">
+              <label class="btn btn-outline">
+                上传字幕文件
+                <input
+                  class="sr-only"
+                  type="file"
+                  :key="subtitle.fileInputKey"
+                  multiple
+                  accept=".srt,.lrc,.ass,.ssa,.vtt"
+                  @change="handleSubtitleFiles($event.target.files)"
+                >
+              </label>
+              <label class="btn btn-outline">
+                选择文件夹
+                <input
+                  class="sr-only"
+                  type="file"
+                  :key="'folder-' + subtitle.fileInputKey"
+                  webkitdirectory
+                  directory
+                  multiple
+                  accept=".srt,.lrc,.ass,.ssa,.vtt"
+                  @change="handleSubtitleFiles($event.target.files)"
+                >
+              </label>
+            </div>
+            <p class="hint">{{ subtitle.status }}</p>
+            <div class="results-list">
+              <p v-if="!subtitle.batchResults.length" class="muted">请选择字幕文件开始批量处理，支持整个文件夹拖入。</p>
+              <div
+                class="result-item"
+                v-for="(item, idx) in subtitle.batchResults"
+                :key="idx"
+                :class="{ 'has-error': item.error }"
+              >
+                <div>
+                  <p class="filename">{{ item.originalName }}</p>
+                  <p class="result-note" v-if="item.error">{{ item.error }}</p>
+                  <p class="result-note" v-else>
+                    {{ item.newName }}
+                    <small v-if="item.format" class="tag">{{ item.format.toUpperCase() }}</small>
+                  </p>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-4 flex-grow flex flex-col">
-                  <div class="flex justify-between items-center mb-2">
-                    <h3 id="subtitle-results-status" class="text-sm font-medium text-gray-600">处理结果</h3>
-                    <button id="subtitle-clear-btn" class="text-sm text-gray-500 hover:text-gray-700">清空列表</button>
-                  </div>
-                  <div id="subtitle-results-container" class="flex-grow overflow-y-auto space-y-1 pr-2">
-                    <p class="text-gray-400 text-center pt-8">请上传文件或文件夹...</p>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-auto pt-4">
-                <button id="subtitle-download-zip-btn" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-all" disabled>下载全部结果 (.zip)</button>
-              </div>
-            </div>
-
-            <!-- Right Column: Single Paste -->
-            <div class="lg:w-1/2 flex flex-col">
-              <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">单个文本处理</h2>
-              <div class="flex-grow flex flex-col gap-4">
-                <div class="flex-1 flex flex-col">
-                  <label for="subtitle-paste-input" class="block text-sm font-medium text-gray-700 mb-2">在此处粘贴字幕内容</label>
-                  <textarea id="subtitle-paste-input" class="w-full flex-grow p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="工具会自动识别格式..."></textarea>
-                </div>
-                <div class="flex-1 flex flex-col">
-                  <label for="subtitle-paste-output" class="block text-sm font-medium text-gray-700 mb-2">纯文本结果</label>
-                  <textarea id="subtitle-paste-output" readonly class="w-full flex-grow p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
-                </div>
-              </div>
-              <div class="mt-auto pt-4">
-                <div class="flex gap-4">
-                  <button id="subtitle-paste-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all">处理粘贴内容</button>
-                  <div class="tooltip flex-1"><span class="tooltiptext" id="subtitle-paste-tooltip">复制到剪贴板</span><button id="subtitle-paste-copy-btn" class="w-full bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Text Cleanup Tool -->
-        <div id="content-cleanup" class="hidden">
-          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本清理工具</h1><p class="text-gray-500 mt-2">自定义移除 Markdown 标记和空行。</p></div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div><label for="cleanup-input" class="block text-sm font-medium text-gray-700 mb-2">粘贴文本内容</label><textarea id="cleanup-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处粘贴需要清理的文本..."></textarea></div>
-            <div><label for="cleanup-output" class="block text-sm font-medium text-gray-700 mb-2">清理后结果</label><textarea id="cleanup-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea></div>
-          </div>
-          <div class="flex flex-col items-center gap-4">
-            <div class="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-              <div class="flex items-center"><span class="mr-3 text-gray-700">移除Markdown标记</span><label class="switch"><input type="checkbox" id="cleanup-remove-markdown"><span class="slider"></span></label></div>
-              <div class="flex items-center"><span class="mr-3 text-gray-700">移除空行</span><label class="switch"><input type="checkbox" id="cleanup-remove-empty-lines"><span class="slider"></span></label></div>
-            </div>
-            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-              <button id="cleanup-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始处理</button>
-              <div class="tooltip flex-1"><span class="tooltiptext" id="cleanup-copy-tooltip">复制到剪贴板</span><button id="cleanup-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
-              <button id="cleanup-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Text Joiner Tool -->
-        <div id="content-joiner" class="hidden">
-          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本拼接工具</h1><p class="text-gray-500 mt-2">将多行文本合并为单行，并使用自定义符号分割。</p></div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div><label for="joiner-input" class="block text-sm font-medium text-gray-700 mb-2">原始多行文本</label><textarea id="joiner-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入或粘贴多行文本..."></textarea></div>
-            <div>
-              <label for="joiner-output" class="block text-sm font-medium text-gray-700 mb-2">拼接后单行文本</label>
-              <div class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm overflow-auto font-mono text-sm">
-                <code id="joiner-output" class="whitespace-pre-wrap break-all"></code>
-              </div>
-            </div>
-          </div>
-          <div class="flex flex-col items-center gap-4">
-            <div class="w-full max-w-md mb-4">
-              <label for="joiner-separator" class="block text-sm font-medium text-gray-700 mb-2">分隔符 (可用 \n 代表换行符)</label>
-              <input type="text" id="joiner-separator" value="\n" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-              <button id="joiner-process-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始拼接</button>
-              <div class="tooltip flex-1"><span class="tooltiptext" id="joiner-copy-tooltip">复制到剪贴板</span><button id="joiner-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
-              <button id="joiner-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Text Injector Tool -->
-        <div id="content-injector" class="hidden">
-          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本加料工具</h1><p class="text-gray-500 mt-2">在每个字符之间插入自定义（或隐藏）的字符串。</p></div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div><label for="injector-input" class="block text-sm font-medium text-gray-700 mb-2">原始文本</label><textarea id="injector-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入文本..."></textarea></div>
-            <div><label for="injector-output" class="block text-sm font-medium text-gray-700 mb-2">加料后文本</label><textarea id="injector-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea></div>
-          </div>
-          <div class="flex flex-col items-center gap-4">
-            <div class="w-full max-w-md mb-4">
-              <label for="injector-string" class="block text-sm font-medium text-gray-700 mb-2">要插入的字符串 (默认为零宽空格)</label>
-              <div class="flex gap-2">
-                <input type="text" id="injector-string" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此输入要插入的字符串">
-                <button id="injector-zws-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-all text-sm" aria-label="使用零宽字符">使用零宽字符</button>
-              </div>
-            </div>
-            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-              <div class="tooltip flex-1"><span class="tooltiptext" id="injector-copy-tooltip">复制到剪贴板</span><button id="injector-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button></div>
-              <button id="injector-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Word Counter -->
-        <div id="content-counter" class="hidden">
-          <div class="text-center mb-8"><h1 class="text-3xl md:text-4xl font-bold text-gray-800">实时文本分析</h1><p class="text-gray-500 mt-2">在这里粘贴任何文本，立即获取详细统计数据。</p></div>
-          <div class="flex flex-col">
-            <textarea id="counter-input" class="w-full h-64 p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500" placeholder="请在此处输入或粘贴文本..."></textarea>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-center">
-              <div class="bg-blue-50 p-3 rounded-lg"><div class="text-sm text-blue-500">汉字 (中/日)</div><div id="counter-hanzi-count" class="text-2xl font-bold text-blue-800">0</div></div>
-              <div class="bg-green-50 p-3 rounded-lg"><div class="text-sm text-green-500">单词 (EN)</div><div id="counter-word-count" class="text-2xl font-bold text-green-800">0</div></div>
-              <div class="bg-yellow-50 p-3 rounded-lg"><div class="text-sm text-yellow-500">标点符号</div><div id="counter-punc-count" class="text-2xl font-bold text-yellow-800">0</div></div>
-              <div class="bg-gray-100 p-3 rounded-lg"><div class="text-sm text-gray-500">总字符</div><div id="counter-char-count" class="text-2xl font-bold text-gray-800">0</div></div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Timestamp Converter -->
-        <div id="content-timestamp" class="hidden">
-          <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">时间戳双向转换</h1>
-            <p class="text-gray-500 mt-2">在日期时间和 Unix 时间戳 (秒) 之间进行双向转换。</p>
-          </div>
-          <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg mb-8 text-center">
-            <div class="font-semibold text-lg">当前时间戳</div>
-            <code id="current-timestamp" class="text-2xl md:text-3xl font-bold tracking-wider">...</code>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Date to Timestamp -->
-            <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
-              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">日期 → 时间戳</h3>
-              <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                <div><label for="ts-year" class="block text-sm font-medium text-gray-700">年</label><input type="number" id="ts-year" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="2024"></div>
-                <div><label for="ts-month" class="block text-sm font-medium text-gray-700">月</label><input type="number" id="ts-month" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="12"></div>
-                <div><label for="ts-day" class="block text-sm font-medium text-gray-700">日</label><input type="number" id="ts-day" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="25"></div>
-                <div><label for="ts-hour" class="block text-sm font-medium text-gray-700">时</label><input type="number" id="ts-hour" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                <div><label for="ts-minute" class="block text-sm font-medium text-gray-700">分</label><input type="number" id="ts-minute" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                <div><label for="ts-second" class="block text-sm font-medium text-gray-700">秒</label><input type="number" id="ts-second" class="ts-date-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-              </div>
-              <div class="pt-2">
-                <label for="ts-output-from-date" class="block text-sm font-medium text-gray-700">结果时间戳</label>
-                <div class="tooltip w-full"><span class="tooltiptext" id="ts-copy-tooltip-from-date">复制到剪贴板</span>
-                  <input type="text" id="ts-output-from-date" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
+                <div class="result-actions">
+                  <span class="badge danger" v-if="item.error">失败</span>
+                  <template v-else>
+                    <span class="badge success">成功</span>
+                    <button class="btn btn-ghost" @click="downloadSubtitleItem(item)">下载</button>
+                  </template>
                 </div>
               </div>
             </div>
-            <!-- Timestamp to Date -->
-            <div class="space-y-4 p-6 bg-gray-50 rounded-lg flex flex-col">
-              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">时间戳 → 日期</h3>
-              <div>
-                <label for="ts-input-from-ts" class="block text-sm font-medium text-gray-700">输入时间戳 (秒)</label>
-                <input type="number" id="ts-input-from-ts" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="例如: 1718534400">
-              </div>
-              <div class="flex-grow">
-                <label for="ts-output-from-ts" class="block text-sm font-medium text-gray-700">结果日期</label>
-                <div class="tooltip w-full"><span class="tooltiptext" id="ts-copy-tooltip-from-ts">复制到剪贴板</span>
-                  <input type="text" id="ts-output-from-ts" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
-                </div>
-              </div>
+            <div class="form-row compact">
+              <button class="btn btn-ghost" @click="clearSubtitleBatch">清空列表</button>
+              <button
+                class="btn btn-primary"
+                :disabled="!subtitleHasResults || subtitle.downloadInProgress"
+                @click="downloadSubtitleZip"
+              >
+                {{ subtitle.downloadInProgress ? "正在打包..." : "下载全部 ZIP" }}
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>单个文本处理</h2>
+              <p>自动识别字幕格式，一键清理时间轴与标签。</p>
+            </div>
+            <label class="field">
+              <span class="field-label">粘贴字幕内容</span>
+              <textarea
+                v-model="subtitle.pasteInput"
+                placeholder="在此粘贴字幕文本..."
+                @input="processSubtitlePaste"
+              ></textarea>
+            </label>
+            <label class="field">
+              <span class="field-label">
+                清理后的纯文本
+                <small v-if="subtitle.pasteFormat" class="tag">{{ subtitle.pasteFormat === 'unknown' ? '未知格式' : subtitle.pasteFormat.toUpperCase() }}</small>
+              </span>
+              <textarea v-model="subtitle.pasteOutput" readonly></textarea>
+            </label>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="processSubtitlePaste">开始处理</button>
+              <button class="btn btn-secondary" :disabled="!subtitle.pasteOutput" @click="copyValue(subtitle.pasteOutput)">
+                复制结果
+              </button>
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- Duration Converter -->
-        <div id="content-duration" class="hidden">
-          <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">时间段双向转换</h1>
-            <p class="text-gray-500 mt-2">在“天/时/分/秒”和总秒数之间进行双向转换。</p>
+      <!-- 文本清理 -->
+      <section class="tab-panel" v-show="activeTab === 'cleanup'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>原始文本</h2>
+            <textarea v-model="cleanup.input" placeholder="粘贴需要清理的文本..."></textarea>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- D/H/M/S to Seconds -->
-            <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
-              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">复合时间 → 总秒数</h3>
-              <div class="flex flex-wrap justify-center gap-2 mb-4">
-                <button class="quick-duration-btn" data-hours="1">1小时</button>
-                <button class="quick-duration-btn" data-days="1">1天</button>
-                <button class="quick-duration-btn" data-days="7">7天</button>
-                <button class="quick-duration-btn" data-days="14">14天</button>
-                <button class="quick-duration-btn" data-days="31">31天</button>
-                <button class="quick-duration-btn" data-days="365">365天</button>
-                <button class="quick-duration-btn" data-days="99999">永远</button>
-              </div>
-              <div class="grid grid-cols-2 gap-4">
-                <div><label for="dr-days" class="block text-sm font-medium text-gray-700">天</label><input type="number" id="dr-days" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                <div><label for="dr-hours" class="block text-sm font-medium text-gray-700">小时</label><input type="number" id="dr-hours" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                <div><label for="dr-minutes" class="block text-sm font-medium text-gray-700">分钟</label><input type="number" id="dr-minutes" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-                <div><label for="dr-seconds" class="block text-sm font-medium text-gray-700">秒</label><input type="number" id="dr-seconds" class="dr-input mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0"></div>
-              </div>
-              <div>
-                <label for="dr-output-total-seconds" class="block text-sm font-medium text-gray-700">总秒数</label>
-                <div class="tooltip w-full"><span class="tooltiptext" id="dr-copy-tooltip-from-duration">复制到剪贴板</span>
-                  <input type="text" id="dr-output-total-seconds" readonly class="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100 shadow-sm font-mono cursor-pointer">
-                </div>
-              </div>
+          <div class="panel">
+            <h2>清理结果</h2>
+            <textarea v-model="cleanup.output" readonly placeholder="点击开始处理后显示结果"></textarea>
+            <div class="option-group">
+              <label class="checkbox">
+                <input type="checkbox" v-model="cleanup.removeMarkdown">
+                <span>移除 Markdown 标记</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" v-model="cleanup.removeEmptyLines">
+                <span>移除空行</span>
+              </label>
             </div>
-            <!-- Seconds to D/H/M/S -->
-            <div class="space-y-4 p-6 bg-gray-50 rounded-lg">
-              <h3 class="text-lg font-semibold text-gray-700 text-center mb-4">总秒数 → 复合时间</h3>
-              <div>
-                <label for="dr-input-total-seconds" class="block text-sm font-medium text-gray-700">输入总秒数</label>
-                <input type="number" id="dr-input-total-seconds" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="例如: 86400">
-              </div>
-              <div class="grid grid-cols-2 gap-4 pt-2">
-                <div><label class="block text-sm font-medium text-gray-700">天</label><input type="text" id="dr-output-days" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-                <div><label class="block text-sm font-medium text-gray-700">小时</label><input type="text" id="dr-output-hours" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-                <div><label class="block text-sm font-medium text-gray-700">分钟</label><input type="text" id="dr-output-minutes" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-                <div><label class="block text-sm font-medium text-gray-700">秒</label><input type="text" id="dr-output-seconds" readonly class="mt-1 block w-full p-2 border-none rounded-md bg-gray-100 font-mono"></div>
-              </div>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="runCleanup">开始处理</button>
+              <button class="btn btn-secondary" :disabled="!cleanup.output" @click="copyCleanup">复制</button>
+              <button class="btn btn-outline" :disabled="!cleanup.output" @click="downloadCleanup">下载 .txt</button>
             </div>
           </div>
         </div>
-        
-        <!-- Base64 Encoder/Decoder -->
-        <div id="content-base64" class="hidden">
-          <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Base64 编码/解码</h1>
-            <p class="text-gray-500 mt-2">对文本进行 Base64 编码或从 Base64 解码。</p>
+      </section>
+
+      <!-- 文本拼接 -->
+      <section class="tab-panel" v-show="activeTab === 'joiner'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>多行输入</h2>
+            <textarea v-model="joiner.input" placeholder="在此输入或粘贴多行文本..."></textarea>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label for="base64-input" class="block text-sm font-medium text-gray-700 mb-2">原始/Base64 文本</label>
-              <textarea id="base64-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入文本..."></textarea>
-            </div>
-            <div>
-              <label for="base64-output" class="block text-sm font-medium text-gray-700 mb-2">结果</label>
-              <textarea id="base64-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-            <button id="base64-encode-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">编码</button>
-            <button id="base64-decode-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">解码</button>
-            <div class="tooltip flex-1">
-              <span class="tooltiptext" id="base64-copy-tooltip">复制到剪贴板</span>
-              <button id="base64-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button>
+          <div class="panel">
+            <h2>拼接配置</h2>
+            <label class="field">
+              <span class="field-label">分隔符（支持 \n、\t）</span>
+              <input type="text" v-model="joiner.separator">
+            </label>
+            <label class="field">
+              <span class="field-label">输出预览</span>
+              <textarea v-model="joiner.displayOutput" readonly class="mono"></textarea>
+            </label>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="runJoiner">开始拼接</button>
+              <button class="btn btn-secondary" :disabled="!joiner.lastResult" @click="copyJoiner">复制</button>
+              <button class="btn btn-outline" :disabled="!joiner.lastResult" @click="downloadJoiner">下载 .txt</button>
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- Escape Tool -->
-        <div id="content-escape" class="hidden">
-          <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">文本转义（字节字面量）</h1>
-            <p class="text-gray-500 mt-2">字符串 ⇄ 十六进制转义序列，支持 Python 字节字面量 b'\x..' 与连续转义 \x..</p>
+      <!-- 文本加料 -->
+      <section class="tab-panel" v-show="activeTab === 'injector'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>原始文本</h2>
+            <textarea v-model="injector.input" @input="updateInjected" placeholder="输入需要加料的文本..."></textarea>
           </div>
-
-          <div id="escape-error" class="hidden mb-4 p-3 rounded-lg bg-red-100 text-red-700 text-sm"></div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label for="escape-input" class="block text-sm font-medium text-gray-700 mb-2">输入</label>
-              <textarea id="escape-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此粘贴字符串或字节字面量&#10;示例: 我爱你&#10;示例: b'\xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0'&#10;示例: \xe4\xbd\xa0\xe7\x88\xb1\xe4\xbd\xa0"></textarea>
-            </div>
-            <div>
-              <label for="escape-output" class="block text-sm font-medium text-gray-700 mb-2">输出</label>
-              <textarea id="escape-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
+          <div class="panel">
+            <h2>设置与结果</h2>
+            <label class="field">
+              <span class="field-label">插入字符串（默认零宽空格）</span>
+              <input type="text" v-model="injector.string" @input="updateInjected" placeholder="例如 · 或任意自定义字符串">
+            </label>
+            <button class="btn btn-ghost" @click="useZeroWidth">使用零宽空格</button>
+            <textarea v-model="injector.output" readonly placeholder="结果会实时显示在这里"></textarea>
+            <div class="form-row compact">
+              <button class="btn btn-secondary" :disabled="!injector.output" @click="copyInjector">复制</button>
+              <button class="btn btn-outline" :disabled="!injector.output" @click="downloadInjector">下载 .txt</button>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div class="space-y-4 p-4 bg-gray-50 rounded-lg mb-6">
-            <div class="flex flex-wrap items-center gap-6">
-              <div class="flex items-center">
-                <span class="mr-3 text-gray-700">源类型</span>
-                <label class="mr-4 inline-flex items-center">
-                  <input type="radio" name="escape-source" id="escape-source-text" value="text" class="mr-2" checked>
-                  <span>字符串 → 转义</span>
-                </label>
-                <label class="inline-flex items-center">
-                  <input type="radio" name="escape-source" id="escape-source-bytes" value="bytes" class="mr-2">
-                  <span>字节字面量/转义 → 字符串</span>
-                </label>
-              </div>
+      <!-- 字数统计 -->
+      <section class="tab-panel" v-show="activeTab === 'counter'">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>实时字数统计</h2>
+            <p>统计汉字、英文单词、标点符号以及字符总数。</p>
+          </div>
+          <textarea v-model="counter.input" placeholder="输入或粘贴文本，右侧实时统计..."></textarea>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <p class="stat-label">汉字/日文</p>
+              <p class="stat-value">{{ counterStats.hanzi }}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">英文单词</p>
+              <p class="stat-value">{{ counterStats.words }}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">标点符号</p>
+              <p class="stat-value">{{ counterStats.punctuation }}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">字符总数</p>
+              <p class="stat-value">{{ counterStats.totalChars }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-              <div class="flex items-center">
-                <span class="mr-3 text-gray-700">编码</span>
-                <select id="escape-encoding" class="p-2 border border-gray-300 rounded-md">
-                  <option value="utf8" selected>UTF-8</option>
+      <!-- 时间戳转换 -->
+      <section class="tab-panel" v-show="activeTab === 'timestamp'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>日期 → 时间戳</h2>
+              <p>输入年月日（可选时间），自动转换为 Unix 时间戳。</p>
+            </div>
+            <div class="form-row wrap">
+              <input type="number" v-model.number="timestamp.year" placeholder="年" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.month" placeholder="月" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.day" placeholder="日" @input="updateTimestampFromDate">
+            </div>
+            <div class="form-row wrap">
+              <input type="number" v-model.number="timestamp.hour" placeholder="小时" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.minute" placeholder="分钟" @input="updateTimestampFromDate">
+              <input type="number" v-model.number="timestamp.second" placeholder="秒" @input="updateTimestampFromDate">
+            </div>
+            <label class="field">
+              <span class="field-label">时间戳（秒）</span>
+              <input type="text" :value="timestamp.fromDate" readonly @click="copyTimestamp(timestamp.fromDate)">
+            </label>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>时间戳 → 日期</h2>
+              <p>输入时间戳，自动生成格式化日期。</p>
+            </div>
+            <label class="field">
+              <span class="field-label">Unix 时间戳</span>
+              <input type="number" v-model.number="timestamp.fromTsInput" @input="updateDateFromTimestamp">
+            </label>
+            <label class="field">
+              <span class="field-label">格式化结果</span>
+              <input type="text" :value="timestamp.fromTsOutput" readonly @click="copyTimestamp(timestamp.fromTsOutput)">
+            </label>
+            <div class="current-timestamp">
+              <span>当前时间戳：<strong>{{ timestamp.current }}</strong></span>
+              <button class="btn btn-ghost" @click="copyTimestamp(timestamp.current)">复制</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 时间段转换 -->
+      <section class="tab-panel" v-show="activeTab === 'duration'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>复合时间 → 秒</h2>
+              <p>输入天/时/分/秒，计算对应的总秒数。</p>
+            </div>
+            <div class="form-row wrap">
+              <input type="number" min="0" v-model="duration.days" placeholder="天" @input="updateSecondsFromDuration">
+              <input type="number" min="0" v-model="duration.hours" placeholder="小时" @input="updateSecondsFromDuration">
+              <input type="number" min="0" v-model="duration.minutes" placeholder="分钟" @input="updateSecondsFromDuration">
+              <input type="number" min="0" v-model="duration.seconds" placeholder="秒" @input="updateSecondsFromDuration">
+            </div>
+            <label class="field">
+              <span class="field-label">总秒数</span>
+              <input type="text" :value="duration.totalSeconds" readonly @click="copyTimestamp(duration.totalSeconds)">
+            </label>
+            <div class="quick-buttons">
+              <button class="quick-btn" @click="applyQuickDuration(0, 1)">1 小时</button>
+              <button class="quick-btn" @click="applyQuickDuration(0, 2)">2 小时</button>
+              <button class="quick-btn" @click="applyQuickDuration(0, 6)">6 小时</button>
+              <button class="quick-btn" @click="applyQuickDuration(1, 0)">1 天</button>
+              <button class="quick-btn" @click="applyQuickDuration(7, 0)">7 天</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>秒 → 复合时间</h2>
+              <p>输入总秒数，立即拆分为天 / 时 / 分 / 秒。</p>
+            </div>
+            <label class="field">
+              <span class="field-label">输入总秒数</span>
+              <input type="number" min="0" v-model="duration.totalSeconds" @input="updateDurationFromSeconds">
+            </label>
+            <div class="form-row wrap">
+              <input type="text" readonly :value="duration.outputs.days + ' 天'">
+              <input type="text" readonly :value="duration.outputs.hours + ' 小时'">
+              <input type="text" readonly :value="duration.outputs.minutes + ' 分钟'">
+              <input type="text" readonly :value="duration.outputs.seconds + ' 秒'">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Base64 -->
+      <section class="tab-panel" v-show="activeTab === 'base64'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>输入</h2>
+            <textarea v-model="base64.input" placeholder="输入原始文本或 Base64 字符串..."></textarea>
+            <div class="form-row compact">
+              <button class="btn btn-primary" @click="encodeBase64">Base64 编码</button>
+              <button class="btn btn-outline" @click="decodeBase64">Base64 解码</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>输出</h2>
+            <textarea v-model="base64.output" readonly placeholder="结果将显示在这里"></textarea>
+            <div class="form-row compact">
+              <button class="btn btn-secondary" :disabled="!base64.output" @click="copyBase64">复制</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 文本转义 -->
+      <section class="tab-panel" v-show="activeTab === 'escape'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>源文本</h2>
+            <textarea
+              v-model="escape.input"
+              placeholder="输入普通字符串或包含 \\xAA 的字节序列..."
+              @input="autoDetectEscapeMode"
+            ></textarea>
+            <div class="option-group wrap">
+              <label class="radio">
+                <input type="radio" value="text" v-model="escape.sourceMode">
+                <span>字符串 → 转义</span>
+              </label>
+              <label class="radio">
+                <input type="radio" value="bytes" v-model="escape.sourceMode">
+                <span>转义 → 字符串</span>
+              </label>
+            </div>
+            <div class="option-group wrap">
+              <label class="field small">
+                <span class="field-label">编码</span>
+                <select v-model="escape.encoding">
+                  <option value="utf8">UTF-8</option>
                   <option value="latin1">Latin-1</option>
                 </select>
-              </div>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-6">
-              <div class="flex items-center" id="escape-outmode-group">
-                <span class="mr-3 text-gray-700">输出模式</span>
-                <label class="mr-4 inline-flex items-center">
-                  <input type="radio" name="escape-outmode" id="escape-out-python" value="python" class="mr-2">
-                  <span>Python 字节字面量 b'\x..'</span>
-                </label>
-                <label class="inline-flex items-center">
-                  <input type="radio" name="escape-outmode" id="escape-out-plain" value="plain" class="mr-2" checked>
-                  <span>连续转义 \x..</span>
-                </label>
-              </div>
-
-              <div class="flex items-center" id="escape-hexcase-group">
-                <span class="mr-3 text-gray-700">十六进制</span>
-                <select id="escape-hexcase" class="p-2 border border-gray-300 rounded-md">
-                  <option value="lower" selected>小写</option>
+              </label>
+              <label class="field small">
+                <span class="field-label">输出模式</span>
+                <select v-model="escape.outputMode">
+                  <option value="python">Python 字节字面量</option>
+                  <option value="plain">纯 \xXX 序列</option>
+                </select>
+              </label>
+              <label class="field small">
+                <span class="field-label">Hex 大小写</span>
+                <select v-model="escape.hexCase">
+                  <option value="lower">小写</option>
                   <option value="upper">大写</option>
                 </select>
-              </div>
+              </label>
             </div>
+            <button class="btn btn-primary" @click="runEscapeConversion">开始转换</button>
           </div>
-
-          <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-            <button id="escape-convert-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">开始转换</button>
-            <div class="tooltip flex-1">
-              <span class="tooltiptext" id="escape-copy-tooltip">复制到剪贴板</span>
-              <button id="escape-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button>
-            </div>
-            <button id="escape-download-btn" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-all">下载 .txt</button>
-          </div>
-        </div>
-
-        <!-- Simplified/Traditional Converter -->
-        <div id="content-converter" class="hidden">
-          <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">简繁体转换</h1>
-            <p class="text-gray-500 mt-2">在简体中文和繁体中文之间进行转换。</p>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label for="converter-input" class="block text-sm font-medium text-gray-700 mb-2">输入文本</label>
-              <textarea id="converter-input" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500" placeholder="在此处输入简体或繁体文本..."></textarea>
-            </div>
-            <div>
-              <label for="converter-output" class="block text-sm font-medium text-gray-700 mb-2">输出结果</label>
-              <textarea id="converter-output" readonly class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm"></textarea>
-            </div>
-          </div>
-          <div class="flex flex-col items-center gap-4">
-            <div class="flex items-center gap-x-6 gap-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-              <div class="flex items-center">
-                <input id="converter-convert-quotes" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <label for="converter-convert-quotes" class="ml-2 block text-sm text-gray-900">同时转换日式引号『』为中式引号【】</label>
-              </div>
-            </div>
-            <div class="flex flex-wrap items-center justify-center gap-4 w-full">
-              <button id="converter-t2s-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">繁体 → 简体</button>
-              <button id="converter-s2t-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all">简体 → 繁体</button>
-              <div class="tooltip flex-1">
-                <span class="tooltiptext" id="converter-copy-tooltip">复制到剪贴板</span>
-                <button id="converter-copy-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all" aria-label="复制结果">复制结果</button>
-              </div>
+          <div class="panel">
+            <h2>结果</h2>
+            <textarea v-model="escape.output" readonly placeholder="转换结果会显示在这里"></textarea>
+            <p class="error-banner" v-if="escape.error">{{ escape.error }}</p>
+            <div class="form-row compact">
+              <button class="btn btn-secondary" :disabled="!escape.output" @click="copyEscape">复制</button>
+              <button class="btn btn-outline" :disabled="!escape.output" @click="downloadEscape">下载 .txt</button>
             </div>
           </div>
         </div>
-      </div> <!-- /Tab Content -->
-    </div>
+      </section>
+
+      <!-- 简繁转换 -->
+      <section class="tab-panel" v-show="activeTab === 'converter'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <h2>输入文本</h2>
+            <textarea v-model="converter.input" placeholder="输入需要转换的简体或繁体文本"></textarea>
+            <div class="option-group">
+              <label class="checkbox">
+                <input type="checkbox" v-model="converter.quotes">
+                <span>同时将『』替换为【】</span>
+              </label>
+            </div>
+            <div class="form-row compact">
+              <button class="btn btn-primary" :disabled="converter.converting" @click="runConverter('t2s')">
+                {{ converter.converting ? "转换中..." : "繁体 → 简体" }}
+              </button>
+              <button class="btn btn-outline" :disabled="converter.converting" @click="runConverter('s2t')">
+                {{ converter.converting ? "转换中..." : "简体 → 繁体" }}
+              </button>
+            </div>
+            <p class="hint" v-if="!converter.ready">词库加载中，首次转换可能稍有延迟...</p>
+          </div>
+          <div class="panel">
+            <h2>转换结果</h2>
+            <textarea v-model="converter.output" readonly placeholder="转换完成后结果显示在此"></textarea>
+            <button class="btn btn-secondary" :disabled="!converter.output" @click="copyConverter">复制结果</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" v-if="toast.visible" :class="toast.type">{{ toast.message }}</div>
   </div>
 
-  <!-- 入口模块：使用 ES Modules；本地 file:// 使用相对路径，线上 GitHub Pages 使用动态 basePath -->
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>
