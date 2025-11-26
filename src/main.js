@@ -9,6 +9,18 @@ import { toTotalSeconds, fromTotalSeconds } from "./tools/duration.js";
 import { base64Encode, base64Decode } from "./tools/base64.js";
 import { convertEscapes, detectSourceMode } from "./tools/escape.js";
 import { ensureConverters, convertText as convertOpenCC, convertQuotes } from "./tools/converter.js";
+import {
+  ensureGifenc,
+  generatePalette,
+  mergeCanvasPixels,
+  getCanvasPixels,
+  applyPaletteToPixels,
+  indexedToRgba,
+  quantizeCanvas,
+  paletteToDisplayColors,
+  sortPaletteByLuminance,
+  sortPaletteByHue,
+} from "./tools/palette.js";
 import { copyText } from "./utils/clipboard.js";
 import { lazyLoadScript } from "./utils/lazyLoad.js";
 
@@ -23,6 +35,7 @@ const TABS = [
   { key: "base64", label: "Base64" },
   { key: "escape", label: "文本转义" },
   { key: "converter", label: "简繁转换" },
+  { key: "palette", label: "调色盘" },
   { key: "gifSprite", label: "GIF 转精灵图" },
   { key: "spriteGif", label: "精灵图转GIF" },
 ];
@@ -153,6 +166,30 @@ const app = createApp({
         converting: false,
         ready: false,
         prefetching: false,
+      },
+      // 调色盘工具状态
+      palette: {
+        isDragging: false,
+        isProcessing: false,
+        status: "请上传 PNG / JPG 图片",
+        imageName: "",
+        imageUrl: "",
+        originalDataUrl: "",
+        imageWidth: 0,
+        imageHeight: 0,
+        // 调色盘设置
+        maxColors: 256,
+        format: "rgb565",       // rgb565 | rgb444 | rgba4444
+        sortMode: "none",       // none | luminance | hue
+        // 生成的调色盘
+        colors: [],             // [{hex, rgb, index}, ...]
+        rawPalette: [],         // [[r,g,b], ...]
+        // 量化后的图像
+        quantizedUrl: "",
+        quantizedCanvas: null,
+        // 库加载状态
+        libReady: false,
+        libLoading: false,
       },
       spriteGif: {
         columns: 4,
@@ -1364,6 +1401,221 @@ const app = createApp({
         return null;
       }
     },
+
+    // ========== 调色盘工具方法 ==========
+
+    // 确保调色盘库已加载
+    async ensurePaletteLib() {
+      if (this.palette.libReady) return true;
+      if (this.palette.libLoading) return false;
+
+      this.palette.libLoading = true;
+      this.palette.status = "正在加载调色盘库...";
+      try {
+        const ok = await ensureGifenc();
+        this.palette.libReady = ok;
+        this.palette.status = ok ? "请上传 PNG / JPG 图片" : "调色盘库加载失败";
+        return ok;
+      } catch (err) {
+        this.palette.status = "调色盘库加载失败";
+        this.showToast("调色盘库加载失败", "error");
+        return false;
+      } finally {
+        this.palette.libLoading = false;
+      }
+    },
+
+    // 触发调色盘图片上传
+    triggerPaletteUpload() {
+      const input = this.$refs?.paletteFileInput;
+      if (input) input.click();
+    },
+
+    // 处理调色盘图片文件选择
+    async handlePaletteFileSelect(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+
+      const file = files[0];
+      if (!file.type?.startsWith("image/")) {
+        this.showToast("仅支持 PNG / JPG 图片", "warning");
+        return;
+      }
+
+      try {
+        await this.loadPaletteImage(file);
+      } catch (err) {
+        this.showToast(err?.message || "图片加载失败", "error");
+      } finally {
+        if (this.$refs?.paletteFileInput) {
+          this.$refs.paletteFileInput.value = "";
+        }
+      }
+    },
+
+    // 处理调色盘图片拖放
+    handlePaletteDrop(event) {
+      this.palette.isDragging = false;
+      if (!event.dataTransfer?.files?.length) return;
+      this.handlePaletteFileSelect(event.dataTransfer.files);
+    },
+
+    // 加载调色盘图片
+    async loadPaletteImage(file) {
+      const dataUrl = await this.readFileAsDataUrl(file);
+      this.palette.imageName = file.name;
+      this.palette.originalDataUrl = dataUrl;
+      this.palette.imageUrl = dataUrl;
+
+      // 获取图片尺寸
+      const img = await this.loadImageFromUrl(dataUrl);
+      this.palette.imageWidth = img.width;
+      this.palette.imageHeight = img.height;
+      this.palette.status = `已加载：${img.width} × ${img.height}`;
+
+      // 清空之前的结果
+      this.palette.colors = [];
+      this.palette.rawPalette = [];
+      this.palette.quantizedUrl = "";
+      this.palette.quantizedCanvas = null;
+
+      this.showToast("图片已加载，点击「生成调色盘」开始处理", "success");
+    },
+
+    // 生成调色盘
+    async generatePaletteColors() {
+      if (!this.palette.imageUrl) {
+        this.showToast("请先上传图片", "warning");
+        return;
+      }
+
+      // 确保库已加载
+      const ready = await this.ensurePaletteLib();
+      if (!ready) return;
+
+      this.palette.isProcessing = true;
+      this.palette.status = "正在生成调色盘...";
+
+      try {
+        // 将图片绘制到 Canvas
+        const img = await this.loadImageFromUrl(this.palette.imageUrl);
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        // 获取像素数据
+        const { data } = getCanvasPixels(canvas);
+
+        // 生成调色盘
+        const maxColors = Math.min(256, Math.max(2, this.palette.maxColors));
+        const rawPalette = generatePalette(data, maxColors, {
+          format: this.palette.format,
+        });
+
+        this.palette.rawPalette = rawPalette;
+
+        // 根据排序模式处理
+        let sortedPalette = rawPalette;
+        if (this.palette.sortMode === "luminance") {
+          sortedPalette = sortPaletteByLuminance(rawPalette);
+        } else if (this.palette.sortMode === "hue") {
+          sortedPalette = sortPaletteByHue(rawPalette);
+        }
+
+        // 转换为显示格式
+        this.palette.colors = paletteToDisplayColors(sortedPalette);
+
+        // 生成量化后的图像预览
+        const quantizedCanvas = quantizeCanvas(canvas, rawPalette, this.palette.format);
+        this.palette.quantizedCanvas = quantizedCanvas;
+        this.palette.quantizedUrl = quantizedCanvas.toDataURL("image/png");
+
+        this.palette.status = `已生成 ${rawPalette.length} 色调色盘`;
+        this.showToast(`已生成 ${rawPalette.length} 色调色盘`, "success");
+      } catch (err) {
+        this.palette.status = "生成失败：" + (err?.message || "未知错误");
+        this.showToast(err?.message || "调色盘生成失败", "error");
+      } finally {
+        this.palette.isProcessing = false;
+      }
+    },
+
+    // 重新排序调色盘
+    resortPalette() {
+      if (!this.palette.rawPalette?.length) return;
+
+      let sortedPalette = this.palette.rawPalette;
+      if (this.palette.sortMode === "luminance") {
+        sortedPalette = sortPaletteByLuminance(this.palette.rawPalette);
+      } else if (this.palette.sortMode === "hue") {
+        sortedPalette = sortPaletteByHue(this.palette.rawPalette);
+      }
+
+      this.palette.colors = paletteToDisplayColors(sortedPalette);
+    },
+
+    // 下载量化后的图片
+    downloadQuantizedImage() {
+      if (!this.palette.quantizedUrl) {
+        this.showToast("请先生成调色盘", "warning");
+        return;
+      }
+
+      const filename = (this.palette.imageName?.replace(/\.[^.]+$/, "") || "image") +
+        `_${this.palette.colors.length}colors.png`;
+
+      fetch(this.palette.quantizedUrl)
+        .then((res) => res.blob())
+        .then((blob) => downloadBlob(filename, blob))
+        .then(() => this.showToast("图片已下载", "success"))
+        .catch((err) => this.showToast("下载失败", "error"));
+    },
+
+    // 复制调色盘为 CSS 变量格式
+    copyPaletteAsCSS() {
+      if (!this.palette.colors?.length) {
+        this.showToast("请先生成调色盘", "warning");
+        return;
+      }
+
+      const css = this.palette.colors
+        .map((c, i) => `  --color-${i}: ${c.hex};`)
+        .join("\n");
+      const result = `:root {\n${css}\n}`;
+
+      this.copyValue(result);
+    },
+
+    // 复制调色盘为 JSON 格式
+    copyPaletteAsJSON() {
+      if (!this.palette.colors?.length) {
+        this.showToast("请先生成调色盘", "warning");
+        return;
+      }
+
+      const json = JSON.stringify(
+        this.palette.colors.map((c) => c.hex),
+        null,
+        2
+      );
+      this.copyValue(json);
+    },
+
+    // 清空调色盘工具
+    clearPalette() {
+      this.palette.imageName = "";
+      this.palette.imageUrl = "";
+      this.palette.originalDataUrl = "";
+      this.palette.imageWidth = 0;
+      this.palette.imageHeight = 0;
+      this.palette.colors = [];
+      this.palette.rawPalette = [];
+      this.palette.quantizedUrl = "";
+      this.palette.quantizedCanvas = null;
+      this.palette.status = "请上传 PNG / JPG 图片";
+    },
   },
   watch: {
     activeTab(newTab) {
@@ -1372,6 +1624,9 @@ const app = createApp({
       }
       if (newTab === "spriteGif") {
         this.ensureGifJs();
+      }
+      if (newTab === "palette") {
+        this.ensurePaletteLib();
       }
     },
     "spriteGif.columns"() {

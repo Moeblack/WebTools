@@ -449,6 +449,128 @@
         </div>
       </section>
 
+      <!-- 调色盘工具 -->
+      <section class="tab-panel" v-show="activeTab === 'palette'">
+        <div class="panel-grid two-columns">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>图片上传</h2>
+              <p>上传 PNG / JPG 图片，自动提取主要颜色生成调色盘。</p>
+            </div>
+            <div
+              class="sprite-dropzone"
+              :class="{ dragging: palette.isDragging, 'has-image': palette.imageUrl }"
+              @click="triggerPaletteUpload"
+              @dragenter.prevent="palette.isDragging = true"
+              @dragleave.prevent="palette.isDragging = false"
+              @dragover.prevent
+              @drop.prevent="handlePaletteDrop($event)"
+            >
+              <input
+                ref="paletteFileInput"
+                class="sr-only"
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp"
+                @change="handlePaletteFileSelect($event.target.files)"
+              >
+              <div v-if="!palette.imageUrl" class="dropzone-hint">
+                <strong>点击或拖入图片</strong>
+                <span>支持 PNG / JPG / WebP</span>
+              </div>
+              <div v-else class="dropzone-preview">
+                <img :src="palette.imageUrl" :alt="palette.imageName || '原始图片'">
+                <p class="muted">{{ palette.imageName || '已加载图片' }}</p>
+              </div>
+            </div>
+            <p class="hint small-text">{{ palette.status }}</p>
+
+            <div class="panel-header secondary">
+              <h3>调色盘设置</h3>
+            </div>
+            <div class="sprite-settings-grid">
+              <label class="field small">
+                <span class="field-label">最大颜色数</span>
+                <select v-model.number="palette.maxColors">
+                  <option :value="16">16 色</option>
+                  <option :value="32">32 色</option>
+                  <option :value="64">64 色</option>
+                  <option :value="128">128 色</option>
+                  <option :value="256">256 色</option>
+                </select>
+              </label>
+              <label class="field small">
+                <span class="field-label">颜色格式</span>
+                <select v-model="palette.format">
+                  <option value="rgb565">RGB565（高质量）</option>
+                  <option value="rgb444">RGB444（较快）</option>
+                  <option value="rgba4444">RGBA4444（带透明）</option>
+                </select>
+              </label>
+              <label class="field small">
+                <span class="field-label">排序方式</span>
+                <select v-model="palette.sortMode" @change="resortPalette">
+                  <option value="none">默认</option>
+                  <option value="luminance">按亮度</option>
+                  <option value="hue">按色相</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-row compact">
+              <button
+                class="btn btn-primary"
+                :disabled="!palette.imageUrl || palette.isProcessing"
+                @click="generatePaletteColors"
+              >
+                {{ palette.isProcessing ? "处理中..." : "生成调色盘" }}
+              </button>
+              <button class="btn btn-ghost" :disabled="!palette.imageUrl" @click="clearPalette">
+                清空
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>调色盘预览</h2>
+              <p>生成的颜色列表，可导出为 CSS 变量或 JSON。</p>
+            </div>
+
+            <!-- 调色盘颜色网格 -->
+            <div class="palette-grid" v-if="palette.colors.length">
+              <div
+                class="palette-color"
+                v-for="color in palette.colors"
+                :key="color.index"
+                :style="{ backgroundColor: color.hex }"
+                :title="color.hex"
+                @click="copyValue(color.hex)"
+              >
+                <span class="palette-color-label">{{ color.hex }}</span>
+              </div>
+            </div>
+            <p v-else class="muted">生成调色盘后将在此显示颜色列表</p>
+
+            <div class="palette-stats" v-if="palette.colors.length">
+              <p><strong>颜色数量：</strong>{{ palette.colors.length }}</p>
+            </div>
+
+            <div class="form-row compact" v-if="palette.colors.length">
+              <button class="btn btn-secondary" @click="copyPaletteAsCSS">复制 CSS 变量</button>
+              <button class="btn btn-outline" @click="copyPaletteAsJSON">复制 JSON</button>
+            </div>
+
+            <div class="panel-header secondary" v-if="palette.quantizedUrl">
+              <h3>量化效果预览</h3>
+              <p>应用调色盘后的图片效果（点击可下载）</p>
+            </div>
+            <div class="palette-preview" v-if="palette.quantizedUrl" @click="downloadQuantizedImage">
+              <img :src="palette.quantizedUrl" alt="量化后的图片">
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- GIF 转精灵图 -->
       <section class="tab-panel" v-show="activeTab === 'gifSprite'">
         <div class="panel-grid two-columns sprite-tool-layout">
