@@ -18,6 +18,7 @@
       <PaletteTool v-show="activeTab === 'palette'" />
       <GifSpriteTool v-show="activeTab === 'gifSprite'" />
       <SpriteGifTool v-show="activeTab === 'spriteGif'" />
+      <EmoteSplitTool v-show="activeTab === 'emoteSplit'" />
     </main>
 
     <AppFooter />
@@ -26,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted } from "vue";
 
 // Common components
 import AppHeader from "./components/common/AppHeader.vue";
@@ -48,6 +49,7 @@ import ConverterTool from "./components/tools/ConverterTool.vue";
 import PaletteTool from "./components/tools/PaletteTool.vue";
 import GifSpriteTool from "./components/tools/GifSpriteTool.vue";
 import SpriteGifTool from "./components/tools/SpriteGifTool.vue";
+import EmoteSplitTool from "./components/tools/EmoteSplitTool.vue";
 
 const tabs = [
   { key: "subtitle", label: "字幕工具" },
@@ -63,6 +65,7 @@ const tabs = [
   { key: "palette", label: "调色盘" },
   { key: "gifSprite", label: "GIF 转精灵图" },
   { key: "spriteGif", label: "精灵图转GIF" },
+  { key: "emoteSplit", label: "表情包切割" },
 ];
 
 const activeTab = ref("subtitle");
