@@ -19,6 +19,7 @@
       <GifSpriteTool v-show="activeTab === 'gifSprite'" />
       <SpriteGifTool v-show="activeTab === 'spriteGif'" />
       <EmoteSplitTool v-show="activeTab === 'emoteSplit'" />
+      <MaskTool v-show="activeTab === 'mask'" />
     </main>
 
     <AppFooter />
@@ -50,6 +51,7 @@ import PaletteTool from "./components/tools/PaletteTool.vue";
 import GifSpriteTool from "./components/tools/GifSpriteTool.vue";
 import SpriteGifTool from "./components/tools/SpriteGifTool.vue";
 import EmoteSplitTool from "./components/tools/EmoteSplitTool.vue";
+import MaskTool from "./components/tools/MaskTool.vue";
 
 const tabs = [
   { key: "subtitle", label: "字幕工具" },
@@ -66,6 +68,7 @@ const tabs = [
   { key: "gifSprite", label: "GIF 转精灵图" },
   { key: "spriteGif", label: "精灵图转GIF" },
   { key: "emoteSplit", label: "表情包切割" },
+  { key: "mask", label: "重绘遮罩" },
 ];
 
 const activeTab = ref("subtitle");
