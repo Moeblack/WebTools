@@ -97,6 +97,23 @@ function processAss(text) {
   return finalizeOutput(lines.join("\n"));
 }
 
+function processJson(text) {
+  if (!text) return "";
+  try {
+    const data = JSON.parse(text);
+    if (Array.isArray(data)) {
+      const lines = data
+        .map((item) => item.content)
+        .filter((content) => typeof content === "string" && content.trim())
+        .map((content) => stripHtml(content).trim());
+      return finalizeOutput(lines.join("\n"));
+    }
+  } catch (e) {
+    // 处理 JSON 解析失败的情况
+  }
+  return "";
+}
+
 export function detectSubtitleFormat(text) {
   if (!text) return "unknown";
   const normalized = normalizeInput(text);
@@ -104,6 +121,20 @@ export function detectSubtitleFormat(text) {
   if (/^\s*\d+\s*\n\s*(?:\d{2}:){1,2}\d{2}[,.]\d{2,3}\s*-->/m.test(normalized)) return "srt";
   if (/^\s*Dialogue:/im.test(normalized)) return "ass";
   if (/\[(?:\d{1,2}:){1,2}\d{2}(?:[.,]\d{2,3})?]/.test(normalized)) return "lrc";
+
+  // 尝试检测 JSON 格式
+  try {
+    const trimmed = normalized.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      const data = JSON.parse(trimmed);
+      if (Array.isArray(data) && data.length > 0 && "content" in data[0]) {
+        return "json";
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
   return "unknown";
 }
 
@@ -117,6 +148,8 @@ export function processSubtitle(text, format) {
       return processLrc(text);
     case "ass":
       return processAss(text);
+    case "json":
+      return processJson(text);
     default:
       return genericSubtitleCleanup(text);
   }
@@ -151,7 +184,7 @@ export async function ensureJSZip() {
 export function processSubtitleFile(file) {
   return new Promise((resolve) => {
     const extension = file.name.split(".").pop().toLowerCase();
-    if (!["srt", "lrc", "ass", "ssa", "vtt"].includes(extension)) {
+    if (!["srt", "lrc", "ass", "ssa", "vtt", "json"].includes(extension)) {
       resolve({ originalName: file.name, error: "不支持的文件类型" });
       return;
     }

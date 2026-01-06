@@ -4,7 +4,7 @@
       <div class="panel">
         <div class="panel-header">
           <h2>批量字幕处理</h2>
-          <p>支持 SRT / VTT / LRC / ASS，多文件与文件夹上传。</p>
+          <p>支持 SRT / VTT / LRC / ASS / JSON，多文件与文件夹上传。</p>
         </div>
         <div class="file-actions">
           <label class="btn btn-outline">
@@ -14,7 +14,7 @@
               type="file"
               :key="fileInputKey"
               multiple
-              accept=".srt,.lrc,.ass,.ssa,.vtt"
+              accept=".srt,.lrc,.ass,.ssa,.vtt,.json"
               @change="handleSubtitleFiles($event.target.files)"
             >
           </label>
@@ -27,7 +27,7 @@
               webkitdirectory
               directory
               multiple
-              accept=".srt,.lrc,.ass,.ssa,.vtt"
+              accept=".srt,.lrc,.ass,.ssa,.vtt,.json"
               @change="handleSubtitleFiles($event.target.files)"
             >
           </label>
