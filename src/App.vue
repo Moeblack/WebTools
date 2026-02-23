@@ -20,6 +20,7 @@
       <SpriteGifTool v-show="activeTab === 'spriteGif'" />
       <EmoteSplitTool v-show="activeTab === 'emoteSplit'" />
       <MaskTool v-show="activeTab === 'mask'" />
+      <BrailleTool v-show="activeTab === 'braille'" />
     </main>
 
     <AppFooter />
@@ -53,6 +54,8 @@ import SpriteGifTool from "./components/tools/SpriteGifTool.vue";
 import EmoteSplitTool from "./components/tools/EmoteSplitTool.vue";
 import MaskTool from "./components/tools/MaskTool.vue";
 
+import BrailleTool from "./components/tools/BrailleTool.vue";
+
 const tabs = [
   { key: "subtitle", label: "字幕工具" },
   { key: "cleanup", label: "文本清理" },
@@ -69,6 +72,7 @@ const tabs = [
   { key: "spriteGif", label: "精灵图转GIF" },
   { key: "emoteSplit", label: "表情包切割" },
   { key: "mask", label: "重绘遮罩" },
+  { key: "braille", label: "点阵画" },
 ];
 
 const activeTab = ref("subtitle");
